@@ -2,6 +2,9 @@
 edition = "2018"
 name = "kernel"
 version = "0.1.0"
+# https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
+# 避免构建依赖项启用了std功能，并且相同的依赖项用作no_std环境的常规依赖项时构建被破坏的问题
+resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -23,8 +26,6 @@ k210-soc = { path = "../k210-soc" }
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] } # 如果用 riscv = "0.6" 会编译错误
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers" }
 
-# fatfs = { path = "../fatfs" }
-# core_io = "0.1"
 core_io = { path = "../core_io", features = ["collections"] }
 fatfs = { path = "../fatfs" }
 
