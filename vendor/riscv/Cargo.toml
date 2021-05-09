@@ -1,0 +1,20 @@
+[package]
+authors = ["The RISC-V Team <risc-v@teams.rust-embedded.org>"]
+categories = ["embedded", "hardware-support", "no-std"]
+description = "Low level access to RISC-V processors"
+keywords = ["riscv", "register", "peripheral"]
+license = "ISC"
+name = "riscv"
+repository = "https://github.com/rust-embedded/riscv"
+version = "0.6.0"
+
+[dependencies]
+bare-metal = { path = "../bare-metal" }
+bit_field = { path = "../bit_field" }
+bitflags = { path = "../bitflags" }
+
+[build-dependencies]
+riscv-target = { path = "../riscv-target" }
+
+[features]
+inline-asm = []

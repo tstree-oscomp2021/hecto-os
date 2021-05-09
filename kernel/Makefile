@@ -1,6 +1,6 @@
 # Building
 TARGET		:= riscv64imac-unknown-none-elf
-MODE		:= release
+MODE		?= release
 KERNEL_ELF	:= target/$(TARGET)/$(MODE)/kernel
 KERNEL_BIN	:= $(KERNEL_ELF).bin
 TEST_IMG	:= ../res/testsuits.img
@@ -32,7 +32,11 @@ $(KERNEL_BIN): kernel
 kernel:
 	@echo Platform: $(BOARD)
 	@cp src/linker-$(BOARD).ld src/linker.ld
+ifeq ($(MODE), release)
 	@LOG=$(LOG) cargo build --release --features "board_$(BOARD)"
+else
+	@LOG=$(LOG) cargo build --features "board_$(BOARD)"
+endif
 	@rm src/linker.ld
 
 clean:

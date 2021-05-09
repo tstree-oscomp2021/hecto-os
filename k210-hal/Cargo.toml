@@ -16,4 +16,4 @@ targets = ["riscv64imac-unknown-none-elf"]
 bitflags = "1.2.1"
 embedded-hal = "1.0.0-alpha.1"
 k210-pac = { path = "../k210-pac" }
-nb = "0.1.1"
+nb = "1.0.0"

@@ -44,7 +44,6 @@ SECTIONS
     ebss = .;
     ekernel = .;
 
-    /*TODO 这个是干啥的*/
     /DISCARD/ : {
         *(.eh_frame)
     }

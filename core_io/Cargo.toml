@@ -21,8 +21,6 @@ documentation = "https://doc.rust-lang.org/nightly/std/io/index.html"
 keywords = ["core", "no_std", "io", "read", "write"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/jethrogb/rust-core_io"
-[build-dependencies.rustc_version]
-version = "0.1.7"
 
 [features]
 alloc = []

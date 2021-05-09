@@ -17,9 +17,9 @@ pub static mut HEAP_SPACE: HeapSpace = HeapSpace([0; KERNEL_HEAP_SIZE]);
 /// [`LockedHeap`] 实现了 [`alloc::alloc::GlobalAlloc`] trait，
 /// 可以为全局需要用到堆的地方分配空间。例如 `Box` `Arc` 等
 #[global_allocator]
-static HEAP: LockedHeap<ORDER> = LockedHeap::empty();
+static HEAP: LockedHeap = LockedHeap::empty();
 /// 0x80_0000 24
-const ORDER: usize = 0usize.leading_zeros() as usize - KERNEL_HEAP_SIZE.leading_zeros() as usize;
+// const ORDER: usize = 0usize.leading_zeros() as usize - KERNEL_HEAP_SIZE.leading_zeros() as usize;
 
 /// 初始化操作系统运行时堆空间
 pub fn init() {

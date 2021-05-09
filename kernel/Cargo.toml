@@ -9,27 +9,23 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bitflags = { path = '../vendor/bitflags' }
+buddy_system_allocator = { path = '../vendor/buddy_system_allocator' }
+cstr_core = { path = '../vendor/cstr_core' }
+hashbrown = { path = '../vendor/hashbrown' } # 更快的 HashMap
+lazy_static = { path = '../vendor/lazy_static', features = ["spin_no_std"] }
+log = { path = '../vendor/log' }
+riscv = { path = "../vendor/riscv", features = ["inline-asm"] }
+spin = { path = '../vendor/spin' } # 自旋锁
+virtio-drivers = { path = '../vendor/virtio-drivers' }
+xmas-elf = { path = '../vendor/xmas-elf' } # 解析 elf
+
 algorithm = { path = 'src/algorithm' }
-# bit_field = "0.10"
-bitflags = "1.2"
-
-buddy_system_allocator = "0.8"
-hashbrown = "0.11" # 更快的 HashMap
-lazy_static = { version = "1.4", features = ["spin_no_std"] }
-log = "0.4"
-spin = { version = "0.9", default-features = false, features = ["spin_mutex"] } # 自旋锁
-xmas-elf = "0.7.0" # 解析 elf
-
-k210-hal = { path = "../k210-hal" }
-k210-pac = { path = "../k210-pac" }
-k210-soc = { path = "../k210-soc" }
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] } # 如果用 riscv = "0.6" 会编译错误
-virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers" }
-
 core_io = { path = "../core_io", features = ["collections"] }
-fatfs = { path = "../fatfs" }
-
-cstr_core = "0.2.3"
+fatfs = { path = "../fatfs" } # fat 32 文件系统
+# k210-hal = { path = "../k210-hal" }
+# k210-pac = { path = "../k210-pac" }
+# k210-soc = { path = "../k210-soc" }
 
 [features]
 board_k210 = []
@@ -37,9 +33,10 @@ board_qemu = []
 default = ["board_qemu"]
 
 [profile.dev]
-lto = true
+lto = "thin"
 opt-level = 3
 
 [profile.release]
+codegen-units = 1
 lto = true
-opt-level = 3
+opt-level = 'z'
