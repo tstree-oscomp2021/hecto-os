@@ -1,7 +1,4 @@
-use core::{
-    fmt::{Display, Write},
-    panic::PanicInfo,
-};
+use core::{fmt::Write, panic::PanicInfo};
 
 use crate::{
     backtrace::backtrace,

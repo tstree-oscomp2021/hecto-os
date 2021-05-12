@@ -1,0 +1,77 @@
+# Makefile 所在目录的绝对地址
+MAKEFILE_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
+# 当前文件 Makefile.common 所在目录的绝对路径
+MAKEFILE_COMMON_DIR	:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+# 项目的绝对路径
+ROOT_DIR := $(dir $(abspath $(MAKEFILE_COMMON_DIR)))
+# target 目录
+TARGET_DIR := $(ROOT_DIR)target/$(TARGET)
+
+# Building
+MODE		?=	release
+KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/$(BOARD)
+KERNEL_BIN	:=	$(KERNEL_ELF).bin
+TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
+
+# BOARD
+SBI			?=	rustsbi-0.2.0-alpha.3
+BOOTLOADER	:=	$(ROOT_DIR)/res/$(SBI)-qemu.bin
+
+# Binutils
+OBJDUMP		:=	rust-objdump --arch-name=riscv64
+OBJCOPY		:=	rust-objcopy --binary-architecture=riscv64
+READELF		:=	riscv64-elf-readelf
+
+# Build Options
+LOG 		?=	debug
+RUSTFLAGS	:=	-C link-arg=-T$(MAKEFILE_DIR)linker.ld -C force-frame-pointers=yes
+FEATURES	:=	--features $(LOG)
+BUILD_ARGS	:=	$(FEATURES) --target=$(TARGET)
+ifeq ($(MODE), release)
+	BUILD_ARGS += --release
+endif
+
+# QEMU
+SMP 		?= 	2
+QEMU		:=	qemu-system-riscv64
+QEMU_OPTS	:=	-machine virt \
+				-nographic \
+				-smp $(SMP) \
+				-bios $(BOOTLOADER) \
+				-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) \
+				-drive file=$(TEST_IMG),if=none,format=raw,id=x0 \
+				-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
+# GDB
+GDB			:=	riscv64-elf-gdb
+GDB_OPTS	:=	-ex 'file $(KERNEL_ELF)' \
+				-ex 'set arch riscv:rv64' \
+				-ex 'target remote localhost:1234'"
+
+define colorecho
+    @tput setaf 6 2> /dev/null || true
+    @echo $1
+    @tput sgr0 2> /dev/null || true
+endef
+
+all: $(KERNEL_BIN)
+
+$(KERNEL_ELF):
+	$(call colorecho, "Compiling kernel - $(BOARD)")
+	@RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline
+
+$(KERNEL_BIN): $(KERNEL_ELF)
+	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
+
+clean:
+	@cargo clean
+
+disasm:
+	@$(OBJDUMP) -d $(KERNEL_ELF) > target/kernel.asm
+	@$(OBJDUMP) -t $(KERNEL_ELF) > target/symbol_table.asm
+
+readelf:
+	$(call colorecho, "Launching readelf")
+	@$(READELF) --headers $(KERNEL_ELF)
+
+.PHONY: all $(KERNEL_ELF) $(KERNEL_BIN) clean disasm readelf

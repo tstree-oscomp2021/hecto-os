@@ -16,6 +16,11 @@ lazy_static! {
     pub static ref ROOT_DIR: Dir<'static, BlockDeviceImpl> = FILE_SYSTEM.root_dir();
 }
 
+/// 初始化块设备驱动和文件系统
+pub fn init() {
+    lazy_static::initialize(&FILE_SYSTEM);
+}
+
 #[allow(unused)]
 pub fn test_fat32() {
     // for app in ROOT_DIR.iter() {
