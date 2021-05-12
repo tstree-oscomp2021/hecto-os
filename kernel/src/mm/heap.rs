@@ -28,7 +28,7 @@ pub fn init() {
         HEAP.lock()
             .init(HEAP_SPACE.0.as_ptr() as usize, KERNEL_HEAP_SIZE);
     }
-    log::info!("heap initialized");
+    info!("heap initialized");
 }
 
 /// 空间分配错误的回调
@@ -56,5 +56,5 @@ pub fn heap_test() {
     }
     assert!(bss_range.contains(&(v.as_ptr() as usize)));
     drop(v);
-    log::info!("heap_test passed!");
+    info!("heap_test passed!");
 }

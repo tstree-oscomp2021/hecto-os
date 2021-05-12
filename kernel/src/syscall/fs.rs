@@ -73,7 +73,9 @@ pub(super) fn sys_openat(
     flags: isize,
     mode: usize,
 ) -> isize {
-    let path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };
+    let path = unsafe {
+        core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()).trim_start_matches("./")
+    };
     if dirfd == AT_FDCWD {
         let cur_thread = PROCESSORS[get_hart_id()].lock().current_thread();
         let mut process_inner = cur_thread.process.inner.lock();

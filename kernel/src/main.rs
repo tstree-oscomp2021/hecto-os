@@ -39,7 +39,6 @@ use core_io as io;
 
 use algorithm::*;
 use fs::*;
-use log::*;
 use mm::*;
 use process::*;
 
@@ -58,7 +57,6 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
 
     if hart_id == BOOT_HART_ID {
         mm::clear_bss();
-        logger::init();
         mm::init();
     }
 

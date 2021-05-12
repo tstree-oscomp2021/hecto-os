@@ -98,20 +98,26 @@ impl ShortName {
     }
 }
 
+/// 文件目录项，32 个字节
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DirFileEntryData {
     name: [u8; 11],
     attrs: FileAttributes,
     reserved_0: u8,
+    /// 创建时间的 10 毫秒位
     create_time_0: u8,
+    /// 文件创建时间
     create_time_1: u16,
     create_date: u16,
     access_date: u16,
+    /// 文件起始簇号的高 16 位
     first_cluster_hi: u16,
     modify_time: u16,
     modify_date: u16,
+    /// 文件起始簇号的低 16 位
     first_cluster_lo: u16,
+    /// 文件长度
     size: u32,
 }
 

@@ -16,7 +16,7 @@ pub fn init() {
     handler::init();
     timer::init();
 
-    log::info!("mod interrupt initialized");
+    info!("mod interrupt initialized");
 }
 
 extern "C" {

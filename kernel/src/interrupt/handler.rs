@@ -29,7 +29,7 @@ pub fn init() {
 /// 中断处理入口
 #[no_mangle]
 pub fn handle_interrupt(scause: Scause, stval: usize) {
-    // log::info!(
+    // info!(
     //     "handle_interrupt. sp:{:x} kernel_stack_top: {:x} {:?}",
     //     sp(),
     //     sp() & !(KERNEL_STACK_SIZE - 1),
@@ -60,7 +60,7 @@ pub fn handle_interrupt(scause: Scause, stval: usize) {
             );
         }
     }
-    // log::info!("handle_interrupt end");
+    // info!("handle_interrupt end");
 }
 
 /// 处理时钟中断

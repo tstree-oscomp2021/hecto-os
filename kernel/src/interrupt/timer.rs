@@ -37,7 +37,7 @@ pub fn tick() {
     unsafe {
         TICKS[hart_id] += 1;
         if TICKS[hart_id] % TICKS_PER_SEC == 0 {
-            log::debug!("{} 秒", TICKS[hart_id] / TICKS_PER_SEC);
+            debug!("{} 秒", TICKS[hart_id] / TICKS_PER_SEC);
         }
     }
 }

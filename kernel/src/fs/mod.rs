@@ -9,7 +9,7 @@ pub use stdio::{STDIN, STDOUT};
 lazy_static! {
     // 文件系统
     pub static ref FILE_SYSTEM: FileSystem<BlockDeviceImpl> = {
-        log::info!("初始化块设备驱动和 FAT32 文件系统");
+        info!("初始化块设备驱动和 FAT32 文件系统");
         FileSystem::new(BlockDeviceImpl::new(), FsOptions::new()).unwrap()
     };
     // 根目录

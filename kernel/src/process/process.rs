@@ -13,7 +13,7 @@ lazy_static! {
     /// 内核进程，所有内核线程都属于该进程。
     /// 通过此进程来进行内核栈的分配
     pub static ref KERNEL_PROCESS: Arc<Process> = {
-        log::info!("初始化内核进程");
+        info!("初始化内核进程");
         Arc::new(Process {
             pid: 0,
             inner: Mutex::new(ProcessInner {

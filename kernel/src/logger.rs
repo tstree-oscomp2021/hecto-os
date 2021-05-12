@@ -1,13 +1,13 @@
-use core::{fmt::Write, panic::PanicInfo};
+use core::{
+    fmt::{Display, Write},
+    panic::PanicInfo,
+};
 
 use crate::{
     backtrace::backtrace,
-    hart::get_hart_id,
     sbi::{console_putchar, shutdown},
 };
 
-use lazy_static::lazy_static;
-use log::{Level, LevelFilter, Log, Metadata, Record};
 use spin::Mutex;
 
 struct Stdout;
@@ -23,10 +23,7 @@ impl Write for Stdout {
     }
 }
 
-lazy_static! {
-    /// 给 STDOUT 上锁
-    static ref STDOUT: Mutex<Stdout> = Mutex::new(Stdout);
-}
+const STDOUT: Mutex<Stdout> = Mutex::new(Stdout);
 
 pub fn _print(args: core::fmt::Arguments) {
     STDOUT.lock().write_fmt(args).unwrap();
@@ -43,47 +40,6 @@ macro_rules! println {
     ($($arg:tt)*) => ({
         $crate::logger::_print(format_args_nl!($($arg)*));
     })
-}
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    match info.location() {
-        Some(location) => {
-            log::error!(
-                "[kernel] panicked at '{}', {}:{}:{}",
-                info.message().unwrap(),
-                location.file(),
-                location.line(),
-                location.column()
-            );
-        }
-        None => log::error!("[kernel] panicked at '{}'", info.message().unwrap()),
-    }
-    backtrace();
-
-    shutdown()
-}
-
-struct EnvLogger;
-
-impl Log for EnvLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &Record) {
-        // {:<5} 表示左对齐占 5 格
-        // \x1b[31m 表示其之后的前景色都为红，背景色不变。\x1b[0m 表示之后的都重置
-        println!(
-            "[\x1b[{}m{:<5}\x1b[0m {}] {}",
-            level2color(record.level()),
-            record.level(),
-            get_hart_id(),
-            record.args()
-        );
-    }
-
-    fn flush(&self) {}
 }
 
 /// 前景色 https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
@@ -109,8 +65,19 @@ enum FGColor {
     White = 97,
 }
 
+#[allow(unused)]
+#[repr(usize)]
+#[derive(Clone, Copy)]
+pub enum Level {
+    Error = 0,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
 /// 根据不同日志等级得到颜色。
-fn level2color(level: Level) -> u8 {
+pub const fn level2color(level: Level) -> u8 {
     use FGColor::*;
     return match level {
         Level::Error => Red,
@@ -121,17 +88,83 @@ fn level2color(level: Level) -> u8 {
     } as u8;
 }
 
-/// 注意，如果 bss 段在此之后清楚，请确保 logger 初始化时不会使用 bss 段的变量
-pub fn init() {
-    static LOGGER: EnvLogger = EnvLogger;
-    log::set_logger(&LOGGER).unwrap();
-    // 根据环境变量 LOG 的值来选择 LevelFilter
-    log::set_max_level(match option_env!("LOG") {
-        Some("error") => LevelFilter::Error,
-        Some("warn") => LevelFilter::Warn,
-        Some("info") => LevelFilter::Info,
-        Some("debug") => LevelFilter::Debug,
-        Some("trace") => LevelFilter::Trace,
-        _ => LevelFilter::Off,
-    });
+#[macro_export]
+macro_rules! error {
+    ($($arg:tt)*) => ({
+        #[cfg(any(feature = "trace", feature = "debug", feature = "info", feature = "warn", feature = "error"))]
+        println!(
+            "[\x1b[{}mERROR\x1b[0m {}] {}",
+            crate::logger::level2color(crate::logger::Level::Error),
+            crate::hart::get_hart_id(),
+            format_args!($($arg)*)
+        );
+    })
+}
+#[macro_export]
+macro_rules! warn {
+    ($($arg:tt)*) => ({
+        #[cfg(any(feature = "trace", feature = "debug", feature = "info", feature = "warn"))]
+        println!(
+            "[\x1b[{}mWARN \x1b[0m {}] {}",
+            crate::logger::level2color(crate::logger::Level::Warn),
+            crate::hart::get_hart_id(),
+            format_args!($($arg)*)
+        );
+    })
+}
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)*) => ({
+        #[cfg(any(feature = "trace", feature = "debug", feature = "info"))]
+        println!(
+            "[\x1b[{}mINFO \x1b[0m {}] {}",
+            crate::logger::level2color(crate::logger::Level::Info),
+            crate::hart::get_hart_id(),
+            format_args!($($arg)*)
+        );
+    })
+}
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => ({
+        #[cfg(any(feature = "trace", feature = "debug"))]
+        println!(
+            "[\x1b[{}mDEBUG\x1b[0m {}] {}",
+            crate::logger::level2color(crate::logger::Level::Debug),
+            crate::hart::get_hart_id(),
+            format_args!($($arg)*)
+        );
+    })
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($($arg:tt)*) => ({
+        #[cfg(any(feature = "trace"))]
+        println!(
+            "[\x1b[{}mTRACE\x1b[0m {}] {}",
+            crate::logger::level2color(crate::logger::Level::Trace),
+            crate::hart::get_hart_id(),
+            format_args!($($arg)*)
+        );
+    })
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    match info.location() {
+        Some(location) => {
+            error!(
+                "[kernel] panicked at '{}', {}:{}:{}",
+                info.message().unwrap(),
+                location.file(),
+                location.line(),
+                location.column()
+            );
+        }
+        None => error!("[kernel] panicked at '{}'", info.message().unwrap()),
+    }
+    backtrace();
+
+    shutdown()
 }

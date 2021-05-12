@@ -84,7 +84,7 @@ impl Context {
         }
         // 设置入口地址
         self.sepc = entry_point;
-        log::info!("entry_point: {:x}", entry_point);
+        info!("entry_point: {:x}", entry_point);
         // 设置 sstatus
         self.sstatus = sstatus::read();
         // 中断前处于内核态还是用户态

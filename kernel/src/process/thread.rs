@@ -6,7 +6,6 @@ use alloc::{sync::Arc, vec::Vec};
 use core::mem::size_of;
 use core_io::Read;
 use lazy_static::*;
-use log::*;
 use spin::Mutex;
 use xmas_elf::ElfFile;
 

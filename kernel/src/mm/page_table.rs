@@ -5,7 +5,6 @@ use alloc::{vec, vec::Vec};
 use bitflags::*;
 use core::slice::from_raw_parts_mut;
 use lazy_static::lazy_static;
-use log::*;
 use riscv::register::satp;
 
 use crate::{config::MMIO, ffi::*};
@@ -224,8 +223,8 @@ impl PageTable {
                     Some(data) if data.len() != 0 => {
                         let src_vpn_range = VA::from(data.as_ptr()).floor()
                             ..VA::from(data.as_ptr() as usize + data.len()).ceil();
-                        // log::info!("src_vpn_range {:x?}", src_vpn_range);
-                        // log::info!("vpn {:x?}", area.vpn_range());
+                        // info!("src_vpn_range {:x?}", src_vpn_range);
+                        // info!("vpn {:x?}", area.vpn_range());
                         // XXX self.va_range.start 和 end 可能并非 4k 对齐的，导致多复制了一些数据
                         for (vpn, src_vpn) in area.vpn_range().zip(src_vpn_range) {
                             let mut dst_frame = frame_alloc().unwrap();

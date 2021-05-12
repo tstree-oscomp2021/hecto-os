@@ -33,9 +33,9 @@ kernel:
 	@echo Platform: $(BOARD)
 	@cp src/linker-$(BOARD).ld src/linker.ld
 ifeq ($(MODE), release)
-	@LOG=$(LOG) cargo build --release --features "board_$(BOARD)"
+	@LOG=$(LOG) cargo build --release --features "board_$(BOARD)" --features "$(LOG)"
 else
-	@LOG=$(LOG) cargo build --features "board_$(BOARD)"
+	@LOG=$(LOG) cargo build --features "board_$(BOARD)" --features "$(LOG)"
 endif
 	@rm src/linker.ld
 
