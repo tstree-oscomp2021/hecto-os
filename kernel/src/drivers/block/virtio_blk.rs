@@ -186,7 +186,7 @@ pub extern "C" fn virtio_dma_alloc(pages: usize) -> PA {
             ppn_base = frame.ppn;
         }
         assert_eq!(frame.ppn.0, ppn_base.0 + i);
-        QUEUE_FRAMES.lock().push(frame);
+        QUEUE_FRAMES.lock(|f| f.push(frame));
     }
     ppn_base.into()
 }

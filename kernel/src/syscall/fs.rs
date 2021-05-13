@@ -36,11 +36,7 @@ impl OpenFlags {
 }
 
 pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
-    let process = PROCESSORS[get_hart_id()]
-        .lock()
-        .current_thread()
-        .process
-        .clone();
+    let process = PROCESSORS[get_hart_id()].lock(|p| p.current_thread().process.clone());
     if let Some(inode) = process.inner.lock().fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts(buf, count) };
         if let Ok(n) = unsafe { Arc::get_mut_unchecked(inode) }.write(buffer) {
@@ -51,11 +47,7 @@ pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
 }
 
 pub(super) fn sys_read(fd: usize, buf: *mut u8, count: usize) -> isize {
-    let process = PROCESSORS[get_hart_id()]
-        .lock()
-        .current_thread()
-        .process
-        .clone();
+    let process = PROCESSORS[get_hart_id()].lock(|p| p.current_thread().process.clone());
     if let Some(inode) = process.inner.lock().fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts_mut(buf, count) };
         if let Ok(n) = unsafe { Arc::get_mut_unchecked(inode) }.read(buffer) {
@@ -77,7 +69,7 @@ pub(super) fn sys_openat(
         core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()).trim_start_matches("./")
     };
     if dirfd == AT_FDCWD {
-        let cur_thread = PROCESSORS[get_hart_id()].lock().current_thread();
+        let cur_thread = PROCESSORS[get_hart_id()].lock(|p| p.current_thread());
         let mut process_inner = cur_thread.process.inner.lock();
         process_inner
             .fd_table
@@ -90,8 +82,7 @@ pub(super) fn sys_openat(
 
 pub(super) fn sys_close(fd: usize) -> isize {
     PROCESSORS[get_hart_id()]
-        .lock()
-        .current_thread()
+        .lock(|p| p.current_thread())
         .process
         .inner
         .lock()

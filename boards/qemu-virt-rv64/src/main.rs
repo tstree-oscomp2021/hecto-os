@@ -29,22 +29,19 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
     if hart_id == BOOT_HART_ID {
         fs::init();
         // fs::test_fat32();
-        SCHEDULER
-            .lock()
-            .add_thread(Thread::new_thread("open", None));
+        SCHEDULER.lock(|s| s.add_thread(Thread::new_thread("open", None)));
     }
     interrupt::init();
 
     info!("运行用户线程");
     loop {
-        // 此处用闭包的目的是为了让 SpinLockGuard 释放，防止死锁
-        if let Some(next_thread) = { || SCHEDULER.lock().get_next() }() {
+        if let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
             let next_task_cx = next_thread.task_cx;
-            let mut processor = PROCESSORS[hart::get_hart_id()].lock();
-            processor.current_thread = Some(next_thread);
-            let cur_task_cx2: &&TaskContext =
-                unsafe { core::mem::transmute(&processor.idle_task_cx) };
-            core::mem::drop(processor);
+            let cur_task_cx2: &&TaskContext = PROCESSORS[hart::get_hart_id()].lock(|p| {
+                p.current_thread = Some(next_thread);
+                unsafe { core::mem::transmute(&p.idle_task_cx) }
+            });
+
             unsafe {
                 // hart::send_ipi(1); // 唤醒 hart1
                 // 切换线程

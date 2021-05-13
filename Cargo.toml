@@ -1,5 +1,6 @@
 [workspace]
-members = ["boards/k210", "boards/qemu-virt-rv64"]
+exclude = ["vendor"]
+members = ["kernel", "boards/k210", "boards/qemu-virt-rv64"]
 # https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
 # 避免构建依赖项启用了std功能，并且相同的依赖项用作no_std环境的常规依赖项时构建被破坏的问题
 resolver = "2"

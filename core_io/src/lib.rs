@@ -5,7 +5,6 @@
 #![allow(stable_features, unused_features, incomplete_features)]
 #![feature(
     question_mark,
-    const_fn,
     copy_from_slice,
     try_from,
     str_internals,
