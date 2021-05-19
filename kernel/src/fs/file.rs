@@ -1,6 +1,8 @@
-use alloc::{boxed::Box, string::ToString, sync::Arc};
+use alloc::{boxed::Box, string::String, sync::Arc};
 
 use bitflags::*;
+use fatfs::ReadWriteSeek;
+use hashbrown::HashSet;
 use lazy_static::lazy_static;
 
 use super::{
@@ -8,8 +10,8 @@ use super::{
     Vnode, ROOT_DIR,
 };
 use crate::{
-    arch::{interface::Console, ConsoleImpl},
     io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
+    syscall::Errno,
 };
 
 bitflags! {
@@ -32,7 +34,7 @@ bitflags! {
         /// close on exec
         const CLOEXEC   = 1 << 19;
         ///
-        const DIRECTORY = 1 << 25;
+        const DIRECTORY = 1 << 21;
     }
 }
 
@@ -45,11 +47,6 @@ impl OpenFlags {
     #[inline]
     fn writable(self) -> bool {
         self & (OpenFlags::WRONLY | OpenFlags::RDWR) != OpenFlags::RDONLY
-    }
-
-    #[inline]
-    fn append(self) -> bool {
-        self & OpenFlags::APPEND == OpenFlags::APPEND
     }
 }
 
@@ -70,7 +67,7 @@ pub struct FileDescriptor {
     flags: OpenFlags,
     pos: u64,
     // 多个 fd 可指向同一个 vnode
-    vnode: Arc<Vnode>,
+    pub vnode: Arc<Vnode>,
 }
 
 impl Drop for FileDescriptor {
@@ -125,33 +122,25 @@ impl Seek for FileDescriptor {
     }
 }
 
-pub fn file_open(path: &str, flags: OpenFlags) -> Option<Arc<FileDescriptor>> {
+pub fn file_open(full_path: String, flags: OpenFlags) -> Result<Arc<FileDescriptor>, Errno> {
     // TODO 先转为十分标准的绝对路径，比如连续的 /// 转为 /，..转为父目录
-
-    let mut vnode = Arc::new(Vnode {
-        full_path: path.to_string(),
-        inode: Box::new(ConsoleImpl::CONSOLE_INSTANCE),
-    });
-
-    VNODE_HASHSET.lock(|hs| {
-        if let Some(v) = hs.get(&vnode) {
-            vnode = v.clone();
-        } else {
-            unsafe { Arc::get_mut_unchecked(&mut vnode) }.inode =
-                Box::new(ROOT_DIR.open_file(path).unwrap());
-            hs.insert(vnode.clone());
-        }
-    });
-
-    let pos;
-    if flags.append() {
-        pos = unsafe { Arc::get_mut_unchecked(&mut vnode) }
-            .inode
-            .seek(SeekFrom::End(0))
-            .unwrap();
+    let mut inode: Box<dyn ReadWriteSeek + Send + Sync> = if flags.contains(OpenFlags::CREAT) {
+        Box::new(ROOT_DIR.create_file(full_path.as_str()).unwrap())
+    } else if flags.contains(OpenFlags::DIRECTORY) {
+        Box::new(ROOT_DIR.open_dir(full_path.as_str()).unwrap())
     } else {
-        pos = 0;
-    }
+        Box::new(ROOT_DIR.open_file(full_path.as_str()).unwrap())
+    };
 
-    Some(Arc::new(FileDescriptor { flags, pos, vnode }))
+    let pos = if flags.contains(OpenFlags::APPEND) {
+        inode.seek(SeekFrom::End(0)).unwrap()
+    } else {
+        0
+    };
+
+    Ok(Arc::new(FileDescriptor {
+        flags,
+        pos,
+        vnode: Arc::new(Vnode { full_path, inode }),
+    }))
 }

@@ -220,6 +220,6 @@ impl Drop for Thread {
         // TODO 暂时不移除
         process
             .memory_set
-            .remove_area(get_kernel_stack_range(self.tid.0).start);
+            .remove_area(get_kernel_stack_range(self.tid.0).end);
     }
 }

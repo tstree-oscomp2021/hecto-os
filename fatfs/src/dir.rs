@@ -106,6 +106,27 @@ pub struct Dir<'a, T: ReadWriteSeek + 'a> {
     fs: &'a FileSystem<T>,
 }
 
+impl<'a, T: ReadWriteSeek> Read for Dir<'a, T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.stream.read(buf)
+    }
+}
+
+impl<'a, T: ReadWriteSeek> Write for Dir<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.stream.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
+}
+
+impl<'a, T: ReadWriteSeek> Seek for Dir<'a, T> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.stream.seek(pos)
+    }
+}
+
 unsafe impl<'a, T: ReadWriteSeek + 'a> Sync for Dir<'a, T> {}
 unsafe impl<'a, T: ReadWriteSeek + 'a> Send for Dir<'a, T> {}
 

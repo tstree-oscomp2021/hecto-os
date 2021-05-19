@@ -20,7 +20,7 @@ lazy_static! {
 
 pub struct Vnode {
     // TODO std::path::PathBuf
-    pub(super) full_path: String,
+    pub full_path: String,
     // inode，对应一个文件
     pub(super) inode: Box<dyn ReadWriteSeek + Send + Sync>,
 }

@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 use cstr_core::*;
@@ -42,16 +43,35 @@ pub(super) fn sys_openat(
     let path = unsafe {
         core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()).trim_start_matches("./")
     };
-    if dirfd == AT_FDCWD {
-        let cur_thread = current_processor().lock(|p| p.current_thread());
-        let mut process_inner = cur_thread.process.inner.lock();
-        // TODO 找到空的 fd
-        process_inner.fd_table.push(file_open(path, unsafe {
-            OpenFlags::from_bits_unchecked(flags as usize)
-        }));
-        process_inner.fd_table.len() as isize - 1
+
+    let cur_thread = current_processor().lock(|p| p.current_thread());
+    let mut process_inner = cur_thread.process.inner.lock();
+
+    let path = if dirfd == AT_FDCWD {
+        // TODO 加上 CWD
+        path.to_string()
     } else {
-        -1
+        let mut dir = process_inner.fd_table[dirfd as usize]
+            .as_ref()
+            .unwrap()
+            .vnode
+            .full_path
+            .clone();
+        dir.push('/');
+        dir.push_str(path);
+        dir
+    };
+    debug!("open {}", path);
+
+    // TODO 找到空的 fd
+    match file_open(path, unsafe {
+        OpenFlags::from_bits_unchecked(flags as usize)
+    }) {
+        Ok(fd) => {
+            process_inner.fd_table.push(Some(fd));
+            return process_inner.fd_table.len() as isize - 1;
+        }
+        Err(errno) => -(errno as isize),
     }
 }
 
