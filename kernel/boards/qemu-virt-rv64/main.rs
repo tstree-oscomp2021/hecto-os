@@ -35,8 +35,10 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
         fs::init();
         // fs::test_fat32();
         // 添加用户线程
-        SCHEDULER.lock(|s| s.add_thread(Thread::new_thread("open", None)));
-        SCHEDULER.lock(|s| s.add_thread(Thread::new_thread("openat", None)));
+        SCHEDULER.lock(|s| {
+            s.add_thread(Thread::new_thread("openat", None));
+            s.add_thread(Thread::new_thread("open", None));
+        });
     }
     TrapImpl::init();
 
@@ -45,6 +47,13 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
         if let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
             let next_task_cx = next_thread.task_cx;
             let cur_task_cx2: &&TaskContextImpl = current_processor().lock(|p| {
+                next_thread
+                    .process
+                    .inner
+                    .lock()
+                    .memory_set
+                    .page_table
+                    .activate();
                 p.current_thread = Some(next_thread);
                 unsafe { core::mem::transmute(&p.idle_task_cx) }
             });

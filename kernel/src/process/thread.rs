@@ -59,6 +59,7 @@ lazy_static! {
     pub(super) static ref TID_ALLOCATOR: Mutex<TidAllocator> = Mutex::new(TidAllocator::new());
 }
 
+#[derive(Debug)]
 pub struct Tid(usize);
 impl Drop for Tid {
     fn drop(&mut self) {
@@ -159,9 +160,6 @@ impl Thread {
             .get_mut::<TaskContextImpl>();
         task_cx.set_ra(crate::arch::__restore as usize);
         // println!("task_cx {:#p}", task_cx);
-
-        // XXX 这里暂时为了测试，先激活页表
-        process.inner.lock().memory_set.page_table.activate();
 
         Arc::new(Self {
             tid,
