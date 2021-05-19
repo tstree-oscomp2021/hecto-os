@@ -12,7 +12,7 @@ use super::{
 };
 use crate::{
     io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
-    syscall::Errno,
+    syscall::Result,
 };
 
 bitflags! {
@@ -159,7 +159,7 @@ impl Seek for FileDescriptor {
     }
 }
 
-pub fn file_open(full_path: String, flags: OpenFlags) -> Result<Arc<FileDescriptor>, Errno> {
+pub fn file_open(full_path: String, flags: OpenFlags) -> Result<Arc<FileDescriptor>> {
     debug!("open {}", full_path);
     let mut inode: Box<dyn ReadWriteSeek + Send + Sync> = if flags.contains(OpenFlags::CREAT) {
         Box::new(ROOT_DIR.create_file(full_path.as_str()).unwrap())

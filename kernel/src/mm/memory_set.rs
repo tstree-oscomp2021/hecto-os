@@ -26,7 +26,7 @@ impl MemorySet {
 
     /// 移除一段 area
     pub fn remove_area(&mut self, va_end: VA) {
-        // 此处构造的 MapArea 只需关注 va_range.start
+        // 此处构造的 MapArea 只需关注 va_range.va_end
         let area = self
             .areas
             .take(&MapArea::new(

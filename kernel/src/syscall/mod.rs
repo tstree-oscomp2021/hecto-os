@@ -3,25 +3,16 @@ mod fs;
 mod process;
 
 use alloc::sync::Arc;
-use core::mem::size_of;
 
 use fs::*;
 use interface::Syscall;
 use process::*;
 
-use crate::{
-    arch::{interface::Register, RegisterImpl, SyscallImpl, TrapFrameImpl},
-    board::{interface::Config, ConfigImpl},
-    mm::*,
-};
+use crate::{arch::SyscallImpl, process::*};
 
 /// 系统调用的总入口
 pub fn syscall_handler() {
-    // 对 sp 向上取整
-    // XXX 可能的问题：sp 刚好在栈底
-    let kernel_stack_top = VA(RegisterImpl::sp() - 1 + ConfigImpl::KERNEL_STACK_SIZE
-        & !(ConfigImpl::KERNEL_STACK_SIZE - 1));
-    let context: &mut TrapFrameImpl = (kernel_stack_top - size_of::<TrapFrameImpl>()).get_mut();
+    let context = get_current_trapframe();
 
     // 无论如何处理，一定会跳过当前的 ecall 指令
     context.sepc += 4;
@@ -75,6 +66,8 @@ pub mod interface {
         fn arch_specific_syscall_handler(self) -> isize;
     }
 }
+
+pub type Result<T, E = Errno> = core::result::Result<T, E>;
 
 /// `/usr/include/errno.h`
 #[repr(isize)]

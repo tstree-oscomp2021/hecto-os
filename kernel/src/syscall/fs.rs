@@ -13,8 +13,8 @@ use crate::{
 const AT_FDCWD: usize = -100isize as usize;
 
 pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
-    let process = current_processor().lock(|p| p.current_thread().process.clone());
-    if let Some(fd) = process.inner.lock().fd_table.get_mut(fd).unwrap() {
+    let mut process_inner = get_current_thread().process.inner.lock();
+    if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts(buf, count) };
         if let Ok(n) = unsafe { Arc::get_mut_unchecked(fd) }.write(buffer) {
             return n as isize;
@@ -24,8 +24,8 @@ pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
 }
 
 pub(super) fn sys_read(fd: usize, buf: *mut u8, count: usize) -> isize {
-    let process = current_processor().lock(|p| p.current_thread().process.clone());
-    if let Some(fd) = process.inner.lock().fd_table.get_mut(fd).unwrap() {
+    let mut process_inner = get_current_thread().process.inner.lock();
+    if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts_mut(buf, count) };
         if let Ok(n) = unsafe { Arc::get_mut_unchecked(fd) }.read(buffer) {
             return n as isize;
@@ -47,8 +47,7 @@ pub(super) fn sys_openat(
         OpenFlags::from_bits_unchecked(flags as usize)
     }) {
         Ok(fd) => {
-            let cur_thread = current_processor().lock(|p| p.current_thread());
-            let mut process_inner = cur_thread.process.inner.lock();
+            let mut process_inner = get_current_thread().process.inner.lock();
             process_inner.fd_table.push(Some(fd));
             return process_inner.fd_table.len() as isize - 1;
         }
@@ -57,8 +56,7 @@ pub(super) fn sys_openat(
 }
 
 pub(super) fn sys_close(fd: usize) -> isize {
-    current_processor()
-        .lock(|p| p.current_thread())
+    get_current_thread()
         .process
         .inner
         .lock()
@@ -70,8 +68,7 @@ pub(super) fn sys_close(fd: usize) -> isize {
 
 pub(super) fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
     let buffer = unsafe { from_raw_parts_mut(buf, size) };
-    let cur_thread = current_processor().lock(|p| p.current_thread());
-    let process_inner = cur_thread.process.inner.lock();
+    let process_inner = get_current_thread().process.inner.lock();
     let cwd = process_inner.cwd.as_bytes();
     // TODO 判断缓冲区大小不够的情况（目前会直接 panic）
     buffer[..cwd.len()].copy_from_slice(cwd);
@@ -90,15 +87,14 @@ pub(super) fn sys_mkdirat(dirfd: usize, pathname: *const u8, mode: usize) -> isi
 
 pub(super) fn sys_chdir(path: *const u8) -> isize {
     let full_path = normalize_path(AT_FDCWD, path);
-    let cur_thread = current_processor().lock(|p| p.current_thread());
-    cur_thread.process.inner.lock().cwd = full_path;
+
+    get_current_thread().process.inner.lock().cwd = full_path;
 
     0
 }
 
 pub(super) fn sys_dup(oldfd: usize) -> isize {
-    let cur_thread = current_processor().lock(|p| p.current_thread());
-    let mut process_inner = cur_thread.process.inner.lock();
+    let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(oldfd) = process_inner.fd_table[oldfd].as_ref() {
         let newfd = Some(oldfd.clone());
         process_inner.fd_table.push(newfd);
@@ -118,8 +114,7 @@ fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     // 去掉开头的 `./`
     path = path.trim_start_matches("./");
 
-    let cur_thread = current_processor().lock(|p| p.current_thread());
-    let process_inner = cur_thread.process.inner.lock();
+    let process_inner = get_current_thread().process.inner.lock();
 
     // 目录路径
     let mut dir_path: &str = if dirfd == AT_FDCWD {

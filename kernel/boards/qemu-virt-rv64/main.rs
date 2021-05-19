@@ -58,7 +58,6 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
                     .memory_set
                     .page_table
                     .activate();
-                p.current_thread = Some(next_thread);
                 unsafe { core::mem::transmute(&p.idle_task_cx) }
             });
 

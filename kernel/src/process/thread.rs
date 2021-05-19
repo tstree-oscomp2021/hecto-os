@@ -12,9 +12,8 @@ use xmas_elf::ElfFile;
 use super::*;
 use crate::{
     arch::{
-        __switch,
-        interface::{PageTable, TaskContext, TrapFrame},
-        PTEImpl, TaskContextImpl, TrapFrameImpl,
+        PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch,
+        interface::{PageTable, Register, TaskContext, TrapFrame},
     },
     board::{interface::Config, ConfigImpl},
     fs::*,
@@ -100,6 +99,23 @@ pub fn get_kernel_stack_range(tid: usize) -> VARange {
     VA(kernel_stack_top - ConfigImpl::KERNEL_STACK_SIZE)..VA(kernel_stack_top)
 }
 
+const THREAD_PTR_OFFSET: usize = size_of::<usize>();
+const TRAP_FRAME_OFFSET: usize = THREAD_PTR_OFFSET + size_of::<TrapFrameImpl>();
+
+#[inline]
+pub fn get_cur_kernel_stack_top() -> VA {
+    // XXX 可能的问题：sp 刚好在栈底，得到 guard page 里的内容，发生 page fault
+    VA(RegisterImpl::sp() - 1 + ConfigImpl::KERNEL_STACK_SIZE
+        & !(ConfigImpl::KERNEL_STACK_SIZE - 1))
+}
+pub fn get_current_thread() -> &'static mut Thread {
+    let thread_ptr = *(get_cur_kernel_stack_top() - THREAD_PTR_OFFSET).get_mut::<usize>();
+    unsafe { &mut *(thread_ptr as *mut Thread) }
+}
+pub fn get_current_trapframe() -> &'static mut TrapFrameImpl {
+    (get_cur_kernel_stack_top() - TRAP_FRAME_OFFSET).get_mut()
+}
+
 impl Thread {
     /// 创建内核线程
     pub fn new_kernel(entry: usize, _args: Option<&[usize]>) -> Arc<Thread> {
@@ -112,11 +128,10 @@ impl Thread {
             PTEImpl::READABLE | PTEImpl::WRITABLE,
         );
         // TaskContextImpl
-        let task_cx = (kernel_stack_range.end - core::mem::size_of::<TaskContextImpl>())
-            .get_mut::<TaskContextImpl>();
+        let task_cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TaskContextImpl>();
         task_cx.set_ra(entry);
 
-        Arc::new(Self {
+        let new_thread = Arc::new(Self {
             tid,
             process: KERNEL_PROCESS.clone(),
             user_stack_top: VA(0), // 内核线程的用户栈顶为 0，表示没有用户栈
@@ -124,7 +139,11 @@ impl Thread {
             inner: Mutex::new(ThreadInner {
                 status: ThreadStatus::Ready,
             }),
-        })
+        });
+        *(kernel_stack_range.end - THREAD_PTR_OFFSET).get_mut::<usize>() =
+            Arc::<Thread>::as_ptr(&new_thread) as usize;
+
+        new_thread
     }
 
     /// 创建用户进程
@@ -148,7 +167,7 @@ impl Thread {
             PTEImpl::READABLE | PTEImpl::WRITABLE,
         );
         // TrapFrame
-        let cx = (kernel_stack_range.end - size_of::<TrapFrameImpl>()).get_mut::<TrapFrameImpl>();
+        let cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
         cx.init(
             user_stack_top.0 - size_of::<usize>(),
             elf.header.pt2.entry_point() as usize,
@@ -161,7 +180,7 @@ impl Thread {
         task_cx.set_ra(crate::arch::__restore as usize);
         // println!("task_cx {:#p}", task_cx);
 
-        Arc::new(Self {
+        let new_thread = Arc::new(Self {
             tid,
             process,
             user_stack_top,
@@ -169,7 +188,12 @@ impl Thread {
             inner: Mutex::new(ThreadInner {
                 status: ThreadStatus::Ready,
             }),
-        })
+        });
+
+        *(kernel_stack_range.end - THREAD_PTR_OFFSET).get_mut::<usize>() =
+            Arc::<Thread>::as_ptr(&new_thread) as usize;
+
+        new_thread
     }
 
     /// TODO 切换页表，因为每个线程都有可能读写用户区的数据
@@ -214,9 +238,11 @@ impl Hash for Thread {
 /// 回收内核栈
 impl Drop for Thread {
     fn drop(&mut self) {
-        let mut process = self.process.inner.lock();
-        // TODO 暂时不移除
-        process
+        // debug!("{:?} 线程对象 drop", self.tid);
+        // TODO 暂时不移除，留给下一个线程用？
+        KERNEL_PROCESS
+            .inner
+            .lock()
             .memory_set
             .remove_area(get_kernel_stack_range(self.tid.0).end);
     }
