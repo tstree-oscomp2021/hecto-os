@@ -1,29 +1,21 @@
 use core::{fmt::Write, panic::PanicInfo};
 
 use crate::{
+    arch::{cpu::shutdown, interface::Console, ConsoleImpl},
     backtrace::backtrace,
-    sbi::{console_putchar, shutdown},
 };
 
-use spin::Mutex;
+pub mod interface {
+    use fatfs::ReadWriteSeek;
 
-struct Stdout;
-
-impl Write for Stdout {
-    /// 打印一个字符串
-    ///
-    /// [`console_putchar`] sbi 调用每次接受一个 `usize`，但实际上会把它作为 `u8` 来打印字符。
-    /// 因此，如果字符串中存在非 ASCII 字符，需要在 utf-8 编码下，对于每一个 `u8` 调用一次 [`console_putchar`]
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        s.bytes().for_each(|c| console_putchar(c as usize));
-        Ok(())
+    pub trait Console: core::fmt::Write + ReadWriteSeek + Send + Sync {
+        const CONSOLE_INSTANCE: Self;
     }
 }
 
-const STDOUT: Mutex<Stdout> = Mutex::new(Stdout);
-
 pub fn _print(args: core::fmt::Arguments) {
-    STDOUT.lock().write_fmt(args).unwrap();
+    #[allow(const_item_mutation)]
+    ConsoleImpl::CONSOLE_INSTANCE.write_fmt(args).unwrap();
 }
 
 #[macro_export]
@@ -92,7 +84,7 @@ macro_rules! error {
         println!(
             "[\x1b[{}mERROR\x1b[0m {}] {}",
             crate::logger::level2color(crate::logger::Level::Error),
-            crate::hart::get_hart_id(),
+            crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -104,7 +96,7 @@ macro_rules! warn {
         println!(
             "[\x1b[{}mWARN \x1b[0m {}] {}",
             crate::logger::level2color(crate::logger::Level::Warn),
-            crate::hart::get_hart_id(),
+            crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -116,7 +108,7 @@ macro_rules! info {
         println!(
             "[\x1b[{}mINFO \x1b[0m {}] {}",
             crate::logger::level2color(crate::logger::Level::Info),
-            crate::hart::get_hart_id(),
+            crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -128,7 +120,7 @@ macro_rules! debug {
         println!(
             "[\x1b[{}mDEBUG\x1b[0m {}] {}",
             crate::logger::level2color(crate::logger::Level::Debug),
-            crate::hart::get_hart_id(),
+            crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -141,7 +133,7 @@ macro_rules! trace {
         println!(
             "[\x1b[{}mTRACE\x1b[0m {}] {}",
             crate::logger::level2color(crate::logger::Level::Trace),
-            crate::hart::get_hart_id(),
+            crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -163,5 +155,5 @@ fn panic(info: &PanicInfo) -> ! {
     }
     backtrace();
 
-    shutdown()
+    unsafe { shutdown() }
 }

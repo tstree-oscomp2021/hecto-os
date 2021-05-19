@@ -1,7 +1,9 @@
 //! 预约和处理时钟中断
 
-use crate::{config::CLOCK_FREQ, sbi::set_timer};
 use riscv::register::{sie, sstatus, time};
+
+use super::sbi::set_timer;
+use crate::board::{interface::Config, ConfigImpl};
 
 /// 触发时钟中断计数
 pub static mut TICKS: [usize; 2] = [0; 2];
@@ -10,7 +12,7 @@ const TICKS_PER_SEC: usize = 100;
 const MSEC_PER_SEC: usize = 1000;
 /// 时钟中断的间隔，单位是 CPU 指令
 /// 中断间隔 = 每秒时钟周期数 / 每秒 tick 数 = 每次 tick 经过的时钟周期数
-const INTERVAL: usize = CLOCK_FREQ / TICKS_PER_SEC;
+const INTERVAL: usize = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC;
 
 /// 初始化时钟中断
 ///
@@ -33,7 +35,7 @@ pub fn init() {
 pub fn tick() {
     // println!(".");
     set_next_timeout();
-    let hart_id = crate::hart::get_hart_id();
+    let hart_id = super::cpu::get_cpu_id();
     unsafe {
         TICKS[hart_id] += 1;
         if TICKS[hart_id] % TICKS_PER_SEC == 0 {
@@ -54,5 +56,5 @@ fn set_next_timeout() {
 #[inline]
 pub fn get_time_ms() -> usize {
     // 指令周期数 / 每毫秒时钟周期数
-    time::read() / (CLOCK_FREQ / MSEC_PER_SEC)
+    time::read() / (ConfigImpl::CLOCK_FREQ / MSEC_PER_SEC)
 }

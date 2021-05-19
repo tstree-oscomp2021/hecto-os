@@ -12,7 +12,9 @@
     step_trait,
     rustc_attrs,
     map_first_last,
-    get_mut_unchecked
+    get_mut_unchecked,
+    const_generics,
+    const_raw_ptr_to_usize_cast
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
@@ -20,24 +22,24 @@
 #[macro_use]
 pub mod logger;
 pub mod backtrace;
-pub mod config;
 pub mod drivers;
-pub mod ffi;
 pub mod fs;
-pub mod hart;
-pub mod interrupt;
 pub mod mm;
 pub mod process;
-pub mod register;
-pub mod sbi;
-pub mod spinlock;
+pub mod sync;
 pub mod syscall;
+pub mod trap;
+
+pub mod arch;
+pub mod board;
+
+use core_io as io;
 
 extern crate alloc;
 extern crate core_io;
-use core_io as io;
 
 pub use algorithm::*;
 pub use fs::*;
 pub use mm::*;
 pub use process::*;
+pub use sync::*;

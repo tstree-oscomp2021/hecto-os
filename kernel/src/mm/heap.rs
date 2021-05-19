@@ -1,15 +1,16 @@
 //! 实现操作系统动态内存分配所用的堆
 
-use super::*;
 use buddy_system_allocator::LockedHeap;
+
+use crate::board::{interface::Config, ConfigImpl};
 
 /// 进行动态内存分配所用的堆空间
 ///
 /// 大小为 [`KERNEL_HEAP_SIZE`]
 /// 这段空间编译后会被放在操作系统执行程序的 bss 段
 #[repr(align(4096))]
-pub struct HeapSpace(pub [u8; KERNEL_HEAP_SIZE]);
-pub static mut HEAP_SPACE: HeapSpace = HeapSpace([0; KERNEL_HEAP_SIZE]);
+pub struct HeapSpace(pub [u8; ConfigImpl::KERNEL_HEAP_SIZE]);
+pub static mut HEAP_SPACE: HeapSpace = HeapSpace([0; ConfigImpl::KERNEL_HEAP_SIZE]);
 
 /// 堆，动态内存分配器
 ///
@@ -26,7 +27,7 @@ pub fn init() {
     // 告诉分配器使用这一段预留的空间作为堆
     unsafe {
         HEAP.lock()
-            .init(HEAP_SPACE.0.as_ptr() as usize, KERNEL_HEAP_SIZE);
+            .init(HEAP_SPACE.0.as_ptr() as usize, ConfigImpl::KERNEL_HEAP_SIZE);
     }
     info!("heap initialized");
 }
@@ -39,8 +40,9 @@ pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
 
 #[allow(unused)]
 pub fn heap_test() {
-    use crate::ffi::*;
     use alloc::{boxed::Box, vec::Vec};
+
+    use crate::board::*;
 
     let bss_range = sbss as usize..ebss as usize;
     let a = Box::new(5);

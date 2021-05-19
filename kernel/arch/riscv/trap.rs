@@ -1,34 +1,40 @@
-use super::timer;
-use crate::syscall::syscall_handler;
 use riscv::register::{
     scause::{Exception, Interrupt, Scause, Trap},
     sepc, stvec,
 };
 
-global_asm!(include_str!("./interrupt.asm"));
+use super::timer;
+use crate::syscall::syscall_handler;
 
-/// 初始化中断处理
-///
-/// 把中断入口 `__interrupt` 写入 `stvec` 中，开启一些中断以接收按键信息
-pub fn init() {
-    unsafe {
-        extern "C" {
-            /// `interrupt.asm` 中的中断入口
-            fn __interrupt();
+global_asm!(include_str!("./trap.asm"));
+extern "C" {
+    pub fn __trap();
+    pub fn __restore();
+}
+
+pub struct TrapImpl;
+
+impl crate::arch::interface::Trap for TrapImpl {
+    fn init() {
+        unsafe {
+            // 使用 Direct 模式，将中断入口设置为 `__interrupt`
+            stvec::write(__trap as usize, stvec::TrapMode::Direct);
+
+            // // 开启 S 态外部中断
+            // sie::set_sext();
+            // // 开启 S 态软件中断
+            // sie::set_ssoft();
         }
-        // 使用 Direct 模式，将中断入口设置为 `__interrupt`
-        stvec::write(__interrupt as usize, stvec::TrapMode::Direct);
 
-        // // 开启 S 态外部中断
-        // sie::set_sext();
-        // // 开启 S 态软件中断
-        // sie::set_ssoft();
+        timer::init();
+
+        info!("mod trap initialized");
     }
 }
 
 /// 中断处理入口
 #[no_mangle]
-pub fn handle_interrupt(scause: Scause, stval: usize) {
+pub fn handle_trap(scause: Scause, stval: usize) {
     // info!(
     //     "handle_interrupt. sp:{:x} kernel_stack_top: {:x} {:?}",
     //     sp(),
@@ -38,7 +44,12 @@ pub fn handle_interrupt(scause: Scause, stval: usize) {
 
     match scause.cause() {
         // 来自用户态的系统调用
-        Trap::Exception(Exception::UserEnvCall) => syscall_handler(),
+        Trap::Exception(Exception::UserEnvCall) => {
+            unsafe {
+                riscv::register::sstatus::set_sie();
+            }
+            syscall_handler()
+        }
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => supervisor_timer(),
         // 外部中断

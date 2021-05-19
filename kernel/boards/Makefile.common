@@ -3,13 +3,13 @@ MAKEFILE_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 # 当前文件 Makefile.common 所在目录的绝对路径
 MAKEFILE_COMMON_DIR	:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 # 项目的绝对路径
-ROOT_DIR := $(dir $(abspath $(MAKEFILE_COMMON_DIR)))
+ROOT_DIR := $(dir $(abspath $(MAKEFILE_COMMON_DIR)))..
 # target 目录
-TARGET_DIR := $(ROOT_DIR)target/$(TARGET)
+TARGET_DIR := $(ROOT_DIR)/target/$(TARGET)
 
 # Building
 MODE		?=	release
-KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/$(BOARD)
+KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/kernel
 KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
 
@@ -67,8 +67,8 @@ clean:
 	@cargo clean
 
 disasm:
-	@$(OBJDUMP) -d $(KERNEL_ELF) > target/kernel.asm
-	@$(OBJDUMP) -t $(KERNEL_ELF) > target/symbol_table.asm
+	@$(OBJDUMP) -d $(KERNEL_ELF) > $(TARGET_DIR)/kernel.asm
+	@$(OBJDUMP) -t $(KERNEL_ELF) > $(TARGET_DIR)/symbol_table.asm
 
 readelf:
 	$(call colorecho, "Launching readelf")

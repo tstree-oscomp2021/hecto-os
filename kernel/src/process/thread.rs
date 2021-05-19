@@ -1,13 +1,25 @@
-use core::hash::{Hash, Hasher};
-
-use super::*;
-use crate::{fs::*, interrupt::*, mm::*};
 use alloc::{sync::Arc, vec::Vec};
-use core::mem::size_of;
+use core::{
+    hash::{Hash, Hasher},
+    mem::size_of,
+};
+
 use core_io::Read;
 use lazy_static::*;
 use spin::Mutex;
 use xmas_elf::ElfFile;
+
+use super::*;
+use crate::{
+    arch::{
+        __switch,
+        interface::{PageTable, TaskContext, TrapFrame},
+        PTEImpl, TaskContextImpl, TrapFrameImpl,
+    },
+    board::{interface::Config, ConfigImpl},
+    fs::*,
+    mm::*,
+};
 
 pub struct TidAllocator {
     current: usize,
@@ -21,6 +33,7 @@ impl TidAllocator {
             recycled: Vec::with_capacity(4),
         }
     }
+
     pub fn alloc(&mut self) -> Tid {
         if let Some(tid) = self.recycled.pop() {
             Tid(tid)
@@ -29,6 +42,7 @@ impl TidAllocator {
             Tid(self.current - 1)
         }
     }
+
     pub fn dealloc(&mut self, tid: usize) {
         assert!(tid < self.current);
         assert!(
@@ -59,8 +73,8 @@ pub struct Thread {
     pub process: Arc<Process>,
     /// 用户栈顶
     pub user_stack_top: VA,
-    /// 当线程处于 Ready 状态时，task_cx 指向保存在内核栈中的 TaskContext；
-    pub task_cx: &'static TaskContext,
+    /// 当线程处于 Ready 状态时，task_cx 指向保存在内核栈中的 TaskContextImpl；
+    pub task_cx: &'static TaskContextImpl,
     /// 用 `Mutex` 包装一些可变的变量
     pub inner: Mutex<ThreadInner>,
 }
@@ -79,37 +93,27 @@ pub enum ThreadStatus {
     Zombie,
 }
 
-/// 函数调用上下文：在控制流转移前后需要保持不变的寄存器
-/// 一部分由调用者保存，一部分由被调用者保存
-/// __switch 就是一个函数调用，会保存由被调用者保存的寄存器，然后切换到另一个线程
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct TaskContext {
-    ra: usize,
-    /// Saved Register，被调用者需要保存的寄存器。
-    s: [usize; 12],
-}
-
 pub fn get_kernel_stack_range(tid: usize) -> VARange {
-    let kernel_stack_top = KERNEL_STACK_TOP - tid * (KERNEL_STACK_SIZE + GUARD_PAGE_SIZE);
-    VA(kernel_stack_top - KERNEL_STACK_SIZE)..VA(kernel_stack_top)
+    let kernel_stack_top = ConfigImpl::KERNEL_STACK_TOP
+        - tid * (ConfigImpl::KERNEL_STACK_SIZE + ConfigImpl::GUARD_PAGE_SIZE);
+    VA(kernel_stack_top - ConfigImpl::KERNEL_STACK_SIZE)..VA(kernel_stack_top)
 }
 
 impl Thread {
     /// 创建内核线程
-    pub fn new_kernel(entry: usize, args: Option<&[usize]>) -> Arc<Thread> {
+    pub fn new_kernel(entry: usize, _args: Option<&[usize]>) -> Arc<Thread> {
         let tid = TID_ALLOCATOR.lock().alloc();
 
         // 分配内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
         KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
             kernel_stack_range.clone(),
-            PTEFlags::READABLE | PTEFlags::WRITABLE,
+            PTEImpl::READABLE | PTEImpl::WRITABLE,
         );
-        // TaskContext
-        let task_cx =
-            (kernel_stack_range.end - core::mem::size_of::<TaskContext>()).get_mut::<TaskContext>();
-        task_cx.ra = entry;
+        // TaskContextImpl
+        let task_cx = (kernel_stack_range.end - core::mem::size_of::<TaskContextImpl>())
+            .get_mut::<TaskContextImpl>();
+        task_cx.set_ra(entry);
 
         Arc::new(Self {
             tid,
@@ -140,20 +144,20 @@ impl Thread {
         // println!("内核栈 {:#x?}", kernel_stack_range);
         KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
             kernel_stack_range.clone(),
-            PTEFlags::READABLE | PTEFlags::WRITABLE,
+            PTEImpl::READABLE | PTEImpl::WRITABLE,
         );
-        // TrapContext
-        let cx = (kernel_stack_range.end - size_of::<Context>()).get_mut::<Context>();
+        // TrapFrame
+        let cx = (kernel_stack_range.end - size_of::<TrapFrameImpl>()).get_mut::<TrapFrameImpl>();
         cx.init(
             user_stack_top.0 - size_of::<usize>(),
             elf.header.pt2.entry_point() as usize,
             args,
             true,
         );
-        // TaskContext
-        let task_cx =
-            VA(cx as *const Context as usize - size_of::<TaskContext>()).get_mut::<TaskContext>();
-        task_cx.ra = __restore as usize;
+        // TaskContextImpl
+        let task_cx = VA(cx as *const TrapFrameImpl as usize - size_of::<TaskContextImpl>())
+            .get_mut::<TaskContextImpl>();
+        task_cx.set_ra(crate::arch::__restore as usize);
         // println!("task_cx {:#p}", task_cx);
 
         // XXX 这里暂时为了测试，先激活页表
@@ -179,12 +183,12 @@ impl Thread {
 
     /// 准备执行一个线程
     ///
-    /// 激活对应进程的页表，并返回其 Context
-    pub fn prepare(&self) -> *mut Context {
+    /// 激活对应进程的页表，并返回其 TrapFrame
+    pub fn prepare(&self) -> *mut TrapFrameImpl {
         self.process.inner.lock().memory_set.page_table.activate();
-        let kernel_stack_top =
-            VA(KERNEL_STACK_TOP - self.tid.0 * (KERNEL_STACK_SIZE + GUARD_PAGE_SIZE));
-        (kernel_stack_top - size_of::<Context>()).get_mut()
+        let kernel_stack_top = VA(ConfigImpl::KERNEL_STACK_TOP
+            - self.tid.0 * (ConfigImpl::KERNEL_STACK_SIZE + ConfigImpl::GUARD_PAGE_SIZE));
+        (kernel_stack_top - size_of::<TrapFrameImpl>()).get_mut()
     }
 
     /// 使用此 unsafe 函数时，需满足以下几点：

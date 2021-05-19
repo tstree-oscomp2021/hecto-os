@@ -1,6 +1,9 @@
 mod virtio_blk;
 
-use crate::{io::*, spinlock::SpinLock};
+use crate::{
+    io::{Read, Result, Seek, SeekFrom, Write},
+    spinlock::SpinLock,
+};
 
 pub struct BlockDeviceImpl(SpinLock<virtio_blk::VirtIOBlock>);
 
@@ -21,6 +24,7 @@ impl Write for BlockDeviceImpl {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.0.lock(|v| v.write(buf))
     }
+
     #[inline]
     fn flush(&mut self) -> Result<()> {
         self.0.lock(|v| v.flush())

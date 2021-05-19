@@ -1,5 +1,6 @@
-use super::{KERNEL_MAP_OFFSET, PAGE_SIZE, PAGE_SIZE_BITS};
 use core::{fmt::Debug, iter::Step, mem::size_of};
+
+use crate::board::{interface::Config, ConfigImpl};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
@@ -37,25 +38,25 @@ impl<T> From<*mut T> for VA {
 /// 虚实页号之间的线性映射
 impl From<PPN> for VPN {
     fn from(ppn: PPN) -> Self {
-        Self(ppn.0 + (KERNEL_MAP_OFFSET >> PAGE_SIZE_BITS))
+        Self(ppn.0 + (ConfigImpl::KERNEL_MAP_OFFSET >> ConfigImpl::PAGE_SIZE_BITS))
     }
 }
 /// 虚实页号之间的线性映射
 impl From<VPN> for PPN {
     fn from(vpn: VPN) -> Self {
-        Self(vpn.0 - (KERNEL_MAP_OFFSET >> PAGE_SIZE_BITS))
+        Self(vpn.0 - (ConfigImpl::KERNEL_MAP_OFFSET >> ConfigImpl::PAGE_SIZE_BITS))
     }
 }
 /// 虚实地址之间的线性映射
 impl From<PA> for VA {
     fn from(pa: PA) -> Self {
-        Self(pa.0 + KERNEL_MAP_OFFSET)
+        Self(pa.0 + ConfigImpl::KERNEL_MAP_OFFSET)
     }
 }
 /// 虚实地址之间的线性映射
 impl From<VA> for PA {
     fn from(va: VA) -> Self {
-        Self(va.0 - KERNEL_MAP_OFFSET)
+        Self(va.0 - ConfigImpl::KERNEL_MAP_OFFSET)
     }
 }
 
@@ -66,29 +67,33 @@ macro_rules! implement_address_to_page_number {
         impl From<$page_number_type> for $address_type {
             /// 从页号转换为地址
             fn from(page_number: $page_number_type) -> Self {
-                Self(page_number.0 << PAGE_SIZE_BITS)
+                Self(page_number.0 << ConfigImpl::PAGE_SIZE_BITS)
             }
         }
         /// 实现地址转页号
         impl From<$address_type> for $page_number_type {
             /// 从地址转换为页号，直接进行移位操作。不允许转换没有对齐的地址
             fn from(address: $address_type) -> Self {
-                assert!(address.0 & (PAGE_SIZE - 1) == 0);
-                Self(address.0 >> PAGE_SIZE_BITS)
+                assert!(address.0 & (ConfigImpl::PAGE_SIZE - 1) == 0);
+                Self(address.0 >> ConfigImpl::PAGE_SIZE_BITS)
             }
         }
         impl $address_type {
             /// 将地址转换为页号，向下取整
             pub const fn floor(self) -> $page_number_type {
-                $page_number_type(self.0 >> PAGE_SIZE_BITS)
+                $page_number_type(self.0 >> ConfigImpl::PAGE_SIZE_BITS)
             }
+
             /// 将地址转换为页号，向上取整
             pub const fn ceil(self) -> $page_number_type {
-                $page_number_type((self.0 - 1 + PAGE_SIZE) >> PAGE_SIZE_BITS)
+                $page_number_type(
+                    (self.0 - 1 + ConfigImpl::PAGE_SIZE) >> ConfigImpl::PAGE_SIZE_BITS,
+                )
             }
+
             /// 低 12 位的 offset
             pub const fn page_offset(&self) -> usize {
-                self.0 & (PAGE_SIZE - 1)
+                self.0 & (ConfigImpl::PAGE_SIZE - 1)
             }
         }
     };
@@ -106,12 +111,13 @@ impl VPN {
         }
         idx
     }
+
     pub fn get_array<T>(&self) -> &'static mut [T] {
-        assert!(PAGE_SIZE % size_of::<T>() == 0);
+        assert!(ConfigImpl::PAGE_SIZE % size_of::<T>() == 0);
         unsafe {
             core::slice::from_raw_parts_mut(
-                (self.0 << PAGE_SIZE_BITS) as *mut T,
-                PAGE_SIZE / size_of::<T>(),
+                (self.0 << ConfigImpl::PAGE_SIZE_BITS) as *mut T,
+                ConfigImpl::PAGE_SIZE / size_of::<T>(),
             )
         }
     }
@@ -121,6 +127,7 @@ impl VA {
     pub fn get_ref<T>(&self) -> &'static T {
         unsafe { &*(self.0 as *const T) }
     }
+
     pub fn get_mut<T>(&self) -> &'static mut T {
         unsafe { &mut *(self.0 as *mut T) }
     }
@@ -134,6 +141,7 @@ macro_rules! implement_usize_operations {
         #[allow(unused_unsafe)]
         impl core::ops::Add<usize> for $type_name {
             type Output = Self;
+
             fn add(self, other: usize) -> Self::Output {
                 Self(self.0 + other)
             }
@@ -151,6 +159,7 @@ macro_rules! implement_usize_operations {
         #[allow(unused_unsafe)]
         impl core::ops::Sub<usize> for $type_name {
             type Output = Self;
+
             fn sub(self, other: usize) -> Self::Output {
                 Self(self.0 - other)
             }
@@ -158,6 +167,7 @@ macro_rules! implement_usize_operations {
         /// `-`
         impl core::ops::Sub<$type_name> for $type_name {
             type Output = usize;
+
             fn sub(self, other: $type_name) -> Self::Output {
                 self.0 - other.0
             }

@@ -1,10 +1,13 @@
-use crate::{drivers::*, io::*};
 use fatfs::{Dir, FileSystem, FsOptions};
 use lazy_static::*;
 
-mod stdio;
+use crate::{drivers::*, io::*};
 
-pub use stdio::{STDIN, STDOUT};
+mod file;
+mod vnode;
+
+pub use file::{file_open, FileDescriptor, OpenFlags, STDIN, STDOUT};
+pub use vnode::Vnode;
 
 lazy_static! {
     // 文件系统

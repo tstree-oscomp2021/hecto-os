@@ -1,9 +1,22 @@
 //! Syscall IDs. Based on https://git.musl-libc.org/cgit/musl/tree/arch/riscv64/bits/syscall.h.in
 
+use crate::arch::interface::Syscall;
+
+impl Syscall for SyscallImpl {
+    fn arch_specific_syscall_handler(self) -> isize {
+        match self {
+            _ => {
+                println!("unimplemented syscall: {}", self as usize);
+                -1
+            }
+        }
+    }
+}
+
 #[allow(unused, non_camel_case_types)]
 #[derive(Debug, Clone, Copy)]
 #[repr(usize)]
-pub(super) enum SyscallId {
+pub enum SyscallImpl {
     io_setup = 0,
     io_destroy = 1,
     io_submit = 2,

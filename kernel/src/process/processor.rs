@@ -1,11 +1,13 @@
 //! 实现线程的调度和管理 [`Processor`]
 
-use super::*;
-use crate::spinlock::*;
-use algorithm::*;
 use alloc::sync::Arc;
+
+use algorithm::*;
 use hashbrown::HashSet;
 use lazy_static::*;
+
+use super::*;
+use crate::{arch::cpu::get_cpu_id, spinlock::*};
 
 lazy_static! {
     /// 全局的 [`Processor`]，保存每 CPU 变量
@@ -15,6 +17,11 @@ lazy_static! {
 lazy_static! {
     /// 调度器，保存 Ready 状态的线程
     pub static ref SCHEDULER: SpinLock<SchedulerImpl<Arc<Thread>>> = SpinLock::new(SchedulerImpl::default());
+}
+
+#[inline]
+pub fn current_processor() -> &'static SpinLock<Processor> {
+    &PROCESSORS[get_cpu_id()]
 }
 
 /// 每 cpu 变量

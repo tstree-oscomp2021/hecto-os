@@ -1,7 +1,8 @@
-//! 保存现场所用的 struct [`Context`]
-
 use core::mem::zeroed;
+
 use riscv::register::sstatus::{self, Sstatus, SPP::*};
+
+use crate::arch::interface::TrapFrame;
 
 /// 发生中断时，保存的寄存器
 ///
@@ -10,10 +11,11 @@ use riscv::register::sstatus::{self, Sstatus, SPP::*};
 /// - `sepc`：产生中断的地址
 ///
 /// ### `#[repr(C)]` 属性
-/// 要求 struct 按照 C 语言的规则进行内存分布，否则 Rust 可能按照其他规则进行内存排布
+/// 要求 struct 按照 C 语言的规则进行内存分布，否则 Rust
+/// 可能按照其他规则进行内存排布
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct Context {
+pub struct TrapFrameImpl {
     /// 通用寄存器 x0~x31
     /// TODO 事实上，x4(tp) 并没有被保存，而是用来表示当前cpuid
     pub x: [usize; 32],
@@ -23,36 +25,36 @@ pub struct Context {
     pub sepc: usize,
 }
 
-/// 创建一个用 0 初始化的 Context
+/// 创建一个用 0 初始化的 TrapFrameImpl
 ///
 /// 这里使用 [`core::mem::zeroed()`] 来强行用全 0 初始化。
-/// 因为在一些类型中，0 数值可能不合法（例如引用），所以 [`zeroed()`] 是 unsafe 的
-impl Default for Context {
+/// 因为在一些类型中，0 数值可能不合法（例如引用），所以 [`zeroed()`] 是 unsafe
+/// 的
+impl Default for TrapFrameImpl {
     fn default() -> Self {
         unsafe { zeroed() }
     }
 }
 
-#[allow(unused)]
-impl Context {
+impl TrapFrame for TrapFrameImpl {
     /// 获取栈指针
-    pub fn sp(&self) -> usize {
+    fn sp(&self) -> usize {
         self.x[2]
     }
 
     /// 设置栈指针
-    pub fn set_sp(&mut self, value: usize) -> &mut Self {
+    fn set_sp(&mut self, value: usize) -> &mut Self {
         self.x[2] = value;
         self
     }
 
     /// 获取返回地址
-    pub fn ra(&self) -> usize {
+    fn ra(&self) -> usize {
         self.x[1]
     }
 
     /// 设置返回地址
-    pub fn set_ra(&mut self, value: usize) -> &mut Self {
+    fn set_ra(&mut self, value: usize) -> &mut Self {
         self.x[1] = value;
         self
     }
@@ -60,16 +62,16 @@ impl Context {
     /// 按照函数调用规则写入参数
     ///
     /// 没有考虑一些特殊情况，例如超过 8 个参数，或 struct 空间展开
-    pub fn set_arguments(&mut self, arguments: &[usize]) -> &mut Self {
+    fn set_arguments(&mut self, arguments: &[usize]) -> &mut Self {
         assert!(arguments.len() <= 8);
         self.x[10..(10 + arguments.len())].copy_from_slice(arguments);
         self
     }
 
-    /// 为线程构建初始 `Context`
+    /// 为线程构建初始 `TrapFrameImpl`
     ///
     /// 线程通过 __restore 启动时会载入这些上下文
-    pub fn init(
+    fn init(
         &mut self,
         stack_top: usize,
         entry_point: usize,

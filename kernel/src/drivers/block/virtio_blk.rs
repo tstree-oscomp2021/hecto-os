@@ -1,10 +1,19 @@
-use crate::{io, io::*, mm::*, spinlock::*};
 use alloc::vec::Vec;
+
 use lazy_static::*;
 use virtio_drivers::{VirtIOBlk, VirtIOHeader};
 
+use crate::{
+    arch::interface::PageTable,
+    board::{interface::Config, ConfigImpl},
+    io,
+    io::*,
+    mm::*,
+    spinlock::*,
+};
+
 #[allow(unused)]
-const VIRTIO0: usize = crate::config::MMIO[0].0 + KERNEL_MAP_OFFSET;
+const VIRTIO0: usize = ConfigImpl::MMIO[0].0 + ConfigImpl::KERNEL_MAP_OFFSET;
 
 const BLOCK_SZ: usize = 512;
 
@@ -41,6 +50,7 @@ impl VirtIOBlock {
             .read_block(self.block_id, &mut self.buf)
             .expect("Error when reading VirtIOBlk");
     }
+
     #[inline]
     fn flush_buf(&mut self) {
         self.device

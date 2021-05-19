@@ -1,12 +1,12 @@
 #![allow(unused)]
 
 /// 保存 hart_id
-pub unsafe fn set_hart_id(hart_id: usize) {
+pub unsafe fn set_cpu_id(hart_id: usize) {
     llvm_asm!("mv tp, $0" : : "r"(hart_id));
 }
 
 /// 获取当前 hart id
-pub fn get_hart_id() -> usize {
+pub fn get_cpu_id() -> usize {
     let hart_id;
     unsafe {
         llvm_asm!("mv $0, tp" : "=r"(hart_id));

@@ -1,8 +1,11 @@
-use super::{MEMORY_END, PPN, VA, VPN};
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+
 use lazy_static::*;
 use spin::Mutex;
+
+use super::{PPN, VA, VPN};
+use crate::board::{interface::Config, ConfigImpl};
 
 pub struct FrameTracker {
     // TODO 去掉 pub
@@ -13,6 +16,7 @@ impl FrameTracker {
     pub fn new(ppn: PPN) -> FrameTracker {
         FrameTracker { ppn }
     }
+
     pub fn zero(&mut self) {
         VPN::from(self.ppn).get_array::<usize>().fill(0);
     }
@@ -33,6 +37,7 @@ impl Drop for FrameTracker {
 /// `FrameTracker` 可以 deref 得到对应的 `[u8; PAGE_SIZE]`
 impl core::ops::Deref for FrameTracker {
     type Target = [usize];
+
     fn deref(&self) -> &Self::Target {
         VPN::from(self.ppn).get_array::<usize>()
     }
@@ -77,6 +82,7 @@ impl FrameAllocator for StackFrameAllocator {
             recycled: Vec::new(),
         }
     }
+
     fn alloc(&mut self) -> Option<FrameTracker> {
         if let Some(ppn) = self.recycled.pop() {
             Some(FrameTracker::new(ppn.into()))
@@ -89,6 +95,7 @@ impl FrameAllocator for StackFrameAllocator {
             }
         }
     }
+
     fn dealloc(&mut self, ft: &FrameTracker) {
         let ppn = ft.ppn.into();
         // validity check
@@ -113,7 +120,7 @@ pub fn init_frame_allocator() {
     }
     FRAME_ALLOCATOR.lock().init(
         VA(ekernel as usize).ceil().into(),
-        VA(MEMORY_END).floor().into(),
+        VA(ConfigImpl::MEMORY_END).floor().into(),
     );
     info!("frame allocator initialized");
 }

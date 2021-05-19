@@ -1,13 +1,15 @@
-use crate::{
-    fs::{STDIN, STDOUT},
-    mm::*,
-};
-
 use alloc::{collections::BTreeSet, sync::Arc, vec, vec::Vec};
-use fatfs::*;
+
 use lazy_static::lazy_static;
 use spin::Mutex;
 use xmas_elf::ElfFile;
+
+use crate::{
+    arch::PTEImpl,
+    board::{interface::Config, ConfigImpl},
+    fs::{FileDescriptor, STDIN, STDOUT},
+    mm::*,
+};
 
 lazy_static! {
     /// 内核进程，所有内核线程都属于该进程。
@@ -31,7 +33,8 @@ pub type Pid = usize;
 
 pub struct Process {
     pub pid: Pid,
-    /// 可变的部分。如果要更高的细粒度，去掉 ProcessInner 的 Mutex，给里面的 memory_set 等等分别加上
+    /// 可变的部分。如果要更高的细粒度，去掉 ProcessInner 的 Mutex，给里面的
+    /// memory_set 等等分别加上
     pub inner: Mutex<ProcessInner>,
 }
 
@@ -39,7 +42,7 @@ pub struct ProcessInner {
     /// 进程中的线程公用页表 / 内存映射
     pub memory_set: MemorySet,
     /// 文件描述符（文件指针，指向一个文件表项 File）
-    pub fd_table: Vec<Option<Arc<dyn ReadWriteSeek + Send + Sync>>>,
+    pub fd_table: Vec<Option<Arc<FileDescriptor>>>,
 }
 
 impl Process {
@@ -56,16 +59,18 @@ impl Process {
 
     /// TODO 用户栈最好是能够和程序段贴紧一些，可以减少分配页表的开销
     /// TODO 加一个 field，保存被 unmap 过的 user_stack_top
-    /// TODO 从 elf 创建进程的时候就对齐成 PAGE_SIZE 的话，这里就不需要向上取整了
-    /// TODO 按需分配
+    /// TODO 从 elf 创建进程的时候就对齐成 PAGE_SIZE
+    /// 的话，这里就不需要向上取整了 TODO 按需分配
     pub fn alloc_user_stack(&self) -> VA {
         let mut inner = self.inner.lock();
         let last = inner.memory_set.areas.last().unwrap().va_range.end.0;
-        let user_stack_top =
-            VA(((last + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE + USER_STACK_SIZE);
+        let user_stack_top = VA(((last + ConfigImpl::PAGE_SIZE - 1)
+            & !(ConfigImpl::PAGE_SIZE - 1))
+            + ConfigImpl::PAGE_SIZE
+            + ConfigImpl::USER_STACK_SIZE);
         inner.memory_set.insert_framed_area(
-            user_stack_top - USER_STACK_SIZE..user_stack_top,
-            PTEFlags::READABLE | PTEFlags::WRITABLE | PTEFlags::USER,
+            user_stack_top - ConfigImpl::USER_STACK_SIZE..user_stack_top,
+            PTEImpl::READABLE | PTEImpl::WRITABLE | PTEImpl::USER,
         );
 
         user_stack_top

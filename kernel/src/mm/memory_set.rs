@@ -1,11 +1,16 @@
-use super::{FrameTracker, PTEFlags, PageTable, VARange, VPNRange, VA, VPN};
-
 use alloc::collections::{BTreeMap, BTreeSet};
+
 use xmas_elf::{program::Type, ElfFile};
+
+use super::{FrameTracker, VARange, VPNRange, VA, VPN};
+use crate::arch::{
+    interface::{PageTable, PTE},
+    PTEImpl, PageTableImpl,
+};
 
 /// 每个 proccess 的地址空间，类似于 Linux 中的 mm_struct
 pub struct MemorySet {
-    pub page_table: PageTable,
+    pub page_table: PageTableImpl,
     /// TODO 换成 BTreeMap
     pub areas: BTreeSet<MapArea>,
 }
@@ -14,10 +19,11 @@ impl MemorySet {
     /// 创建一个映射了内核区域的 MemorySet
     pub fn new_kernel() -> Self {
         Self {
-            page_table: PageTable::new_kernel(),
+            page_table: PageTableImpl::new_kernel(),
             areas: BTreeSet::new(),
         }
     }
+
     /// 移除一段 area
     pub fn remove_area(&mut self, va_end: VA) {
         // 此处构造的 MapArea 只需关注 va_range.start
@@ -26,18 +32,20 @@ impl MemorySet {
             .take(&MapArea::new(
                 VA(0)..va_end,
                 MapType::Linear,
-                PTEFlags::empty(),
+                PTEImpl::EMPTY,
             ))
             .unwrap();
         for vpn in area.vpn_range() {
             self.page_table.unmap_one(vpn);
         }
     }
+
     /// 在地址空间插入一段按帧映射的区域，未检查重叠区域
     #[inline]
-    pub fn insert_framed_area(&mut self, va_range: VARange, permission: PTEFlags) {
+    pub fn insert_framed_area(&mut self, va_range: VARange, permission: PTEImpl) {
         self.insert_area(MapArea::new(va_range, MapType::Framed, permission), None);
     }
+
     /// 在地址空间插入一个新的逻辑段，未检查重叠区域
     fn insert_area(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         self.page_table.map(&mut map_area, data);
@@ -62,10 +70,10 @@ impl MemorySet {
                 MapArea::new(
                     start_addr.into()..(start_addr + ph.mem_size() as usize).into(),
                     MapType::Framed,
-                    PTEFlags::USER
-                        | PTEFlags::readable(flags.is_read())
-                        | PTEFlags::writable(flags.is_write())
-                        | PTEFlags::executable(flags.is_execute()),
+                    PTEImpl::USER
+                        | PTEImpl::readable(flags.is_read())
+                        | PTEImpl::writable(flags.is_write())
+                        | PTEImpl::executable(flags.is_execute()),
                 ),
                 Some(&file.input[offset..offset + ph.file_size() as usize]),
             );
@@ -81,11 +89,11 @@ pub struct MapArea {
     pub va_range: VARange,
     pub data_frames: BTreeMap<VPN, FrameTracker>,
     pub map_type: MapType,
-    pub map_perm: PTEFlags,
+    pub map_perm: PTEImpl,
 }
 
 impl MapArea {
-    pub fn new(va_range: VARange, map_type: MapType, map_perm: PTEFlags) -> Self {
+    pub fn new(va_range: VARange, map_type: MapType, map_perm: PTEImpl) -> Self {
         Self {
             va_range,
             data_frames: BTreeMap::new(),

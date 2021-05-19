@@ -13,10 +13,9 @@
 .endm
 
     .section .text
-    .globl __interrupt
+    .globl __trap
 # 进入中断
-# 保存 Context 并且进入 Rust 中的中断处理函数 interrupt::handler::handle_interrupt()
-__interrupt:
+__trap:
 # 保存 Context
     # 如果是从 U->S，那么 sp = sscratch
     # 如果是从 S->S，那么 sp = sp
@@ -48,15 +47,15 @@ __interrupt:
     .endr
 
 # 因为可能出现中断嵌套，所以 sstatus sepc 也需要保存，scause stval 与特权级的切换并没有关系。
-# 设置参数，然后调用 handle_interrupt
+# 设置参数，然后调用 handle_trap
 
     csrr    a0, scause      # scause: Scause
     csrr    a1, stval       # stval: usize
-    jal     handle_interrupt
+    jal     handle_trap
 
 
 
-# 从 handle_interrupt 函数返回。此时的 sp 正是 jal handle_interrupt 前的 sp
+# 从 handle_trap 函数返回。此时的 sp 正是 jal handle_trap 前的 sp
     .globl __restore
 __restore:
 

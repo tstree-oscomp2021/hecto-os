@@ -4,11 +4,14 @@ pub mod thread;
 
 pub use process::{Pid, Process, KERNEL_PROCESS};
 pub use processor::{PROCESSORS, SCHEDULER};
-pub use thread::{get_kernel_stack_range, TaskContext, Thread, ThreadStatus};
+pub use thread::{get_kernel_stack_range, Thread, ThreadStatus};
 
-global_asm!(include_str!("switch.S"));
-extern "C" {
-    /// __switch 调用结束后，*current_task_cx_ptr2 会指向保存在内核栈中的 TaskContext
-    /// next_task_cx_ptr 指向的 TaskContext 都会被 load
-    pub fn __switch(current_task_cx_ptr2: &&TaskContext, next_task_cx_ptr: &TaskContext);
+pub mod interface {
+    /// 函数调用上下文：在控制流转移前后需要保持不变的寄存器
+    /// 一部分由调用者保存，一部分由被调用者保存
+    /// __switch 就是一个函数调用，会保存由被调用者保存的寄存器，
+    /// 然后切换到另一个线程
+    pub trait TaskContext {
+        fn set_ra(&mut self, value: usize) -> &mut Self;
+    }
 }
