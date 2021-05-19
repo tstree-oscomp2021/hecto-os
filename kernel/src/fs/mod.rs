@@ -6,7 +6,7 @@ use crate::{drivers::*, io::*};
 mod file;
 mod vnode;
 
-pub use file::{file_open, FileDescriptor, OpenFlags, STDIN, STDOUT};
+pub use file::{file_open, mkdir, FileDescriptor, OpenFlags, StatMode, STDIN, STDOUT};
 pub use vnode::Vnode;
 
 lazy_static! {

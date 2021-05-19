@@ -5,7 +5,6 @@ mod process;
 use alloc::sync::Arc;
 use core::mem::size_of;
 
-use cstr_core::*;
 use fs::*;
 use interface::Syscall;
 use process::*;
@@ -38,19 +37,14 @@ pub fn syscall_handler() {
         SyscallImpl::dup => todo!(),
         SyscallImpl::dup3 => todo!(),
         SyscallImpl::chdir => todo!(),
-        SyscallImpl::openat => sys_openat(
-            args[0] as isize,
-            args[1] as *const c_char,
-            args[2] as isize,
-            args[3],
-        ),
+        SyscallImpl::openat => sys_openat(args[0], args[1] as *const u8, args[2] as isize, args[3]),
         SyscallImpl::close => sys_close(args[0]),
         SyscallImpl::getdents64 => unimplemented!(),
         SyscallImpl::read => sys_read(args[0], args[1] as *mut u8, args[2]),
         SyscallImpl::write => sys_write(args[0], args[1] as *const u8, args[2]),
         SyscallImpl::linkat => unimplemented!(),
         SyscallImpl::unlinkat => unimplemented!(),
-        SyscallImpl::mkdirat => unimplemented!(),
+        SyscallImpl::mkdirat => sys_mkdirat(args[0], args[1] as *const u8, args[2]),
         SyscallImpl::umount2 => unimplemented!(),
         SyscallImpl::mount => unimplemented!(),
         SyscallImpl::fstat => unimplemented!(),
