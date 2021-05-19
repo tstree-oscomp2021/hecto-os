@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, sync::Arc, vec, vec::Vec};
+use alloc::{collections::BTreeSet, string::String, sync::Arc, vec, vec::Vec};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -19,6 +19,7 @@ lazy_static! {
         Arc::new(Process {
             pid: 0,
             inner: Mutex::new(ProcessInner {
+                cwd: String::from("/"),
                 memory_set: MemorySet {
                     page_table: crate::mm::page_table::kernel_page_table(),
                     areas: BTreeSet::new(),
@@ -39,6 +40,8 @@ pub struct Process {
 }
 
 pub struct ProcessInner {
+    /// 当前工作目录
+    pub cwd: String,
     /// 进程中的线程公用页表 / 内存映射
     pub memory_set: MemorySet,
     /// 文件描述符（文件指针，指向一个文件表项 File）
@@ -51,6 +54,7 @@ impl Process {
         Arc::new(Self {
             pid,
             inner: Mutex::new(ProcessInner {
+                cwd: String::from("/"),
                 memory_set: MemorySet::from_elf(file),
                 fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
             }),

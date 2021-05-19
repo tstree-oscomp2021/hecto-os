@@ -86,3 +86,15 @@ pub(super) fn sys_close(fd: usize) -> isize {
         .take();
     0
 }
+
+pub(super) fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
+    let buffer = unsafe { from_raw_parts_mut(buf, size) };
+    let cur_thread = current_processor().lock(|p| p.current_thread());
+    let process_inner = cur_thread.process.inner.lock();
+    let cwd = process_inner.cwd.as_bytes();
+    // TODO 判断缓冲区大小不够的情况（目前会直接 panic）
+    buffer[..cwd.len()].copy_from_slice(cwd);
+    buffer[cwd.len()] = b'\0';
+
+    buf as isize
+}
