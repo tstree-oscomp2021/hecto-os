@@ -96,6 +96,18 @@ pub(super) fn sys_chdir(path: *const u8) -> isize {
     0
 }
 
+pub(super) fn sys_dup(oldfd: usize) -> isize {
+    let cur_thread = current_processor().lock(|p| p.current_thread());
+    let mut process_inner = cur_thread.process.inner.lock();
+    if let Some(oldfd) = process_inner.fd_table[oldfd].as_ref() {
+        let newfd = Some(oldfd.clone());
+        process_inner.fd_table.push(newfd);
+        process_inner.fd_table.len() as isize - 1
+    } else {
+        -1
+    }
+}
+
 /// TODO 去掉中间重复的 `/` 和 `.`
 fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     let mut path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };

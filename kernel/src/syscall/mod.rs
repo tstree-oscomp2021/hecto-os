@@ -34,7 +34,7 @@ pub fn syscall_handler() {
         // 文件系统相关 16 个
         SyscallImpl::getcwd => sys_getcwd(args[0] as *mut u8, args[1]),
         SyscallImpl::pipe2 => todo!(),
-        SyscallImpl::dup => todo!(),
+        SyscallImpl::dup => sys_dup(args[0]),
         SyscallImpl::dup3 => todo!(),
         SyscallImpl::chdir => sys_chdir(args[0] as *const u8),
         SyscallImpl::openat => sys_openat(args[0], args[1] as *const u8, args[2] as isize, args[3]),
