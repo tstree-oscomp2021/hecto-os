@@ -88,6 +88,14 @@ pub(super) fn sys_mkdirat(dirfd: usize, pathname: *const u8, mode: usize) -> isi
     })
 }
 
+pub(super) fn sys_chdir(path: *const u8) -> isize {
+    let full_path = normalize_path(AT_FDCWD, path);
+    let cur_thread = current_processor().lock(|p| p.current_thread());
+    cur_thread.process.inner.lock().cwd = full_path;
+
+    0
+}
+
 /// TODO 去掉中间重复的 `/` 和 `.`
 fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     let mut path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };

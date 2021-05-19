@@ -36,7 +36,7 @@ pub fn syscall_handler() {
         SyscallImpl::pipe2 => todo!(),
         SyscallImpl::dup => todo!(),
         SyscallImpl::dup3 => todo!(),
-        SyscallImpl::chdir => todo!(),
+        SyscallImpl::chdir => sys_chdir(args[0] as *const u8),
         SyscallImpl::openat => sys_openat(args[0], args[1] as *const u8, args[2] as isize, args[3]),
         SyscallImpl::close => sys_close(args[0]),
         SyscallImpl::getdents64 => unimplemented!(),
