@@ -26,7 +26,7 @@ pub fn syscall_handler() {
         SyscallImpl::getcwd => sys_getcwd(args[0] as *mut u8, args[1]),
         SyscallImpl::pipe2 => todo!(),
         SyscallImpl::dup => sys_dup(args[0]),
-        SyscallImpl::dup3 => todo!(),
+        SyscallImpl::dup3 => sys_dup3(args[0], args[1], args[2]),
         SyscallImpl::chdir => sys_chdir(args[0] as *const u8),
         SyscallImpl::openat => sys_openat(args[0], args[1] as *const u8, args[2] as isize, args[3]),
         SyscallImpl::close => sys_close(args[0]),

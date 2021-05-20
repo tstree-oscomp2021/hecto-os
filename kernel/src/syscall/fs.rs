@@ -7,7 +7,7 @@ use super::*;
 use crate::{
     fs::*,
     io::{Read, Write},
-    processor::current_processor,
+    process::process::MAX_FD,
 };
 
 const AT_FDCWD: usize = -100isize as usize;
@@ -42,14 +42,18 @@ pub(super) fn sys_openat(
 ) -> isize {
     let full_path = normalize_path(dirfd, pathname);
 
-    // TODO 找到空的 fd
     match file_open(full_path, unsafe {
         OpenFlags::from_bits_unchecked(flags as usize)
     }) {
         Ok(fd) => {
             let mut process_inner = get_current_thread().process.inner.lock();
-            process_inner.fd_table.push(Some(fd));
-            return process_inner.fd_table.len() as isize - 1;
+            let newfd = process_inner.fd_alloc();
+            if newfd >= 0 {
+                process_inner.fd_table[newfd as usize] = Some(fd);
+                newfd
+            } else {
+                -1
+            }
         }
         Err(errno) => -(errno as isize),
     }
@@ -87,7 +91,6 @@ pub(super) fn sys_mkdirat(dirfd: usize, pathname: *const u8, mode: usize) -> isi
 
 pub(super) fn sys_chdir(path: *const u8) -> isize {
     let full_path = normalize_path(AT_FDCWD, path);
-
     get_current_thread().process.inner.lock().cwd = full_path;
 
     0
@@ -96,12 +99,29 @@ pub(super) fn sys_chdir(path: *const u8) -> isize {
 pub(super) fn sys_dup(oldfd: usize) -> isize {
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(oldfd) = process_inner.fd_table[oldfd].as_ref() {
-        let newfd = Some(oldfd.clone());
-        process_inner.fd_table.push(newfd);
-        process_inner.fd_table.len() as isize - 1
-    } else {
-        -1
+        let newf = Some(oldfd.clone());
+        let newfd = process_inner.fd_alloc();
+        if newfd >= 0 {
+            process_inner.fd_table[newfd as usize] = newf;
+            return newfd;
+        }
     }
+    -1
+}
+
+pub(super) fn sys_dup3(oldfd: usize, newfd: usize, _flags: usize) -> isize {
+    let mut process_inner = get_current_thread().process.inner.lock();
+    if let Some(oldf) = process_inner.fd_table[oldfd].as_ref() {
+        let newf = Some(oldf.clone());
+        if newfd < MAX_FD {
+            if newfd >= process_inner.fd_table.len() {
+                process_inner.fd_table.resize(newfd + 1, None);
+            }
+            process_inner.fd_table[newfd] = newf;
+            return newfd as isize;
+        }
+    }
+    -1
 }
 
 /// TODO 去掉中间重复的 `/` 和 `.`

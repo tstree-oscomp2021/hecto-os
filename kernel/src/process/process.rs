@@ -86,3 +86,20 @@ impl Process {
         self.inner.lock().memory_set.remove_area(user_stack_top);
     }
 }
+
+pub const MAX_FD: usize = 101;
+impl ProcessInner {
+    pub fn fd_alloc(&mut self) -> isize {
+        let len = self.fd_table.len();
+        for i in 2..self.fd_table.len() {
+            if self.fd_table[i].is_none() {
+                return i as isize;
+            }
+        }
+        if len == MAX_FD {
+            return -1;
+        }
+        self.fd_table.push(None);
+        len as isize
+    }
+}

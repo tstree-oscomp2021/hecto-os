@@ -16,8 +16,8 @@ pub(super) fn sys_exit(_status: isize) -> ! {
         Arc::get_mut_unchecked(&mut cur_thread).dealloc_user_stack();
         // 此时引用计数应为 1，线程将在调度器处析构
         // debug!("引用计数 {}", alloc::sync::Arc::strong_count(&cur_thread));
-        // 防止析构，因为这是个从裸指针构造的 Arc
-        core::mem::forget(cur_thread);
+        // 防止析构，因为这是个从裸指针构造的 Arc。但 __switch 不会返回，所以没必要
+        // core::mem::forget(cur_thread);
         // 2. 切换到另一个线程
         let next_task_cx: &TaskContextImpl =
             core::mem::transmute(current_processor().lock(|p| p.idle_task_cx));

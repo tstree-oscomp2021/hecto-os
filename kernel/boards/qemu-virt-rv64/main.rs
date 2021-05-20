@@ -36,6 +36,7 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
         // fs::test_fat32();
         // 添加用户线程
         SCHEDULER.lock(|s| {
+            s.add_thread(Thread::new_thread("dup2", None));
             s.add_thread(Thread::new_thread("dup", None));
             s.add_thread(Thread::new_thread("chdir", None));
             s.add_thread(Thread::new_thread("mkdir_", None));
