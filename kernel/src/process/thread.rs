@@ -94,8 +94,7 @@ pub enum ThreadStatus {
 }
 
 pub fn get_kernel_stack_range(tid: usize) -> VARange {
-    let kernel_stack_top = ConfigImpl::KERNEL_STACK_TOP
-        - tid * (ConfigImpl::KERNEL_STACK_SIZE + ConfigImpl::GUARD_PAGE_SIZE);
+    let kernel_stack_top = ConfigImpl::KERNEL_STACK_TOP - tid * ConfigImpl::KERNEL_STACK_ALIGN_SIZE;
     VA(kernel_stack_top - ConfigImpl::KERNEL_STACK_SIZE)..VA(kernel_stack_top)
 }
 
@@ -105,8 +104,7 @@ const TRAP_FRAME_OFFSET: usize = THREAD_PTR_OFFSET + size_of::<TrapFrameImpl>();
 #[inline]
 pub fn get_cur_kernel_stack_top() -> VA {
     // XXX 可能的问题：sp 刚好在栈底，得到 guard page 里的内容，发生 page fault
-    VA(RegisterImpl::sp() - 1 + ConfigImpl::KERNEL_STACK_SIZE
-        & !(ConfigImpl::KERNEL_STACK_SIZE - 1))
+    VA(round_up!(RegisterImpl::sp(), ConfigImpl::KERNEL_STACK_SIZE))
 }
 pub fn get_current_thread() -> &'static mut Thread {
     let thread_ptr = *(get_cur_kernel_stack_top() - THREAD_PTR_OFFSET).get_mut::<usize>();
@@ -126,8 +124,9 @@ impl Thread {
         KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
             kernel_stack_range.clone(),
             PTEImpl::READABLE | PTEImpl::WRITABLE,
+            None,
         );
-        // TaskContextImpl
+        // TrapFrame
         let task_cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TaskContextImpl>();
         task_cx.set_ra(entry);
 
@@ -165,6 +164,7 @@ impl Thread {
         KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
             kernel_stack_range.clone(),
             PTEImpl::READABLE | PTEImpl::WRITABLE,
+            None,
         );
         // TrapFrame
         let cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
@@ -196,21 +196,59 @@ impl Thread {
         new_thread
     }
 
+    /// fork 用户进程
+    pub fn fork(&self) -> Arc<Thread> {
+        let tid = TID_ALLOCATOR.lock().alloc();
+        let process = self.process.fork(tid.0);
+        let kernel_stack_range = get_kernel_stack_range(tid.0);
+        KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
+            kernel_stack_range.clone(),
+            PTEImpl::READABLE | PTEImpl::WRITABLE,
+            None,
+        );
+        // TrapFrame
+        let trap_frame = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
+        *trap_frame = *get_current_trapframe();
+        trap_frame.set_return_value(0);
+        // TaskContext
+        let task_cx =
+            VA(trap_frame as *const TrapFrameImpl as usize - size_of::<TaskContextImpl>())
+                .get_mut::<TaskContextImpl>();
+        task_cx.set_ra(crate::arch::__restore as usize);
+
+        let new_thread = Arc::new(Self {
+            tid,
+            process,
+            user_stack_top: get_current_thread().user_stack_top,
+            task_cx,
+            inner: Mutex::new(ThreadInner {
+                status: ThreadStatus::Ready,
+            }),
+        });
+
+        *(kernel_stack_range.end - THREAD_PTR_OFFSET).get_mut::<usize>() =
+            Arc::<Thread>::as_ptr(&new_thread) as usize;
+
+        new_thread
+    }
+
     /// TODO 切换页表，因为每个线程都有可能读写用户区的数据
     pub fn switch_to(&self, other: &Thread) {
+        other.process.inner.lock().memory_set.page_table.activate();
         unsafe {
             __switch(&self.task_cx, other.task_cx);
         }
     }
 
-    /// 准备执行一个线程
-    ///
-    /// 激活对应进程的页表，并返回其 TrapFrame
-    pub fn prepare(&self) -> *mut TrapFrameImpl {
-        self.process.inner.lock().memory_set.page_table.activate();
-        let kernel_stack_top = VA(ConfigImpl::KERNEL_STACK_TOP
-            - self.tid.0 * (ConfigImpl::KERNEL_STACK_SIZE + ConfigImpl::GUARD_PAGE_SIZE));
-        (kernel_stack_top - size_of::<TrapFrameImpl>()).get_mut()
+    /// 获取线程的 TrapFrame
+    pub fn get_trapframe(&self) -> &mut TrapFrameImpl {
+        let kernel_stack_top =
+            VA(ConfigImpl::KERNEL_STACK_TOP - self.tid.0 * ConfigImpl::KERNEL_STACK_ALIGN_SIZE);
+        (kernel_stack_top - TRAP_FRAME_OFFSET).get_mut()
+    }
+
+    pub fn get_tid(&self) -> usize {
+        self.tid.0
     }
 
     /// 使用此 unsafe 函数时，需满足以下几点：
@@ -238,7 +276,7 @@ impl Hash for Thread {
 /// 回收内核栈
 impl Drop for Thread {
     fn drop(&mut self) {
-        // debug!("{:?} 线程对象 drop", self.tid);
+        debug!("{:?} 线程对象 drop", self.tid);
         // TODO 暂时不移除，留给下一个线程用？
         KERNEL_PROCESS
             .inner

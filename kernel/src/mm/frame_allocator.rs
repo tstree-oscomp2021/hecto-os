@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
 
 use lazy_static::*;
@@ -7,14 +7,14 @@ use spin::Mutex;
 use super::{PPN, VA, VPN};
 use crate::board::{interface::Config, ConfigImpl};
 
-pub struct FrameTracker {
+pub struct Frame {
     // TODO 去掉 pub
     pub ppn: PPN,
 }
 
-impl FrameTracker {
-    pub fn new(ppn: PPN) -> FrameTracker {
-        FrameTracker { ppn }
+impl Frame {
+    pub fn new(ppn: PPN) -> Frame {
+        Frame { ppn }
     }
 
     pub fn zero(&mut self) {
@@ -22,38 +22,24 @@ impl FrameTracker {
     }
 }
 
-impl Debug for FrameTracker {
+impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("FrameTracker:PPN={:#x}", self.ppn.0))
+        f.write_fmt(format_args!("Frame:PPN={:#x}", self.ppn.0))
     }
 }
 
-impl Drop for FrameTracker {
+impl Drop for Frame {
     fn drop(&mut self) {
         FRAME_ALLOCATOR.lock().dealloc(self);
     }
 }
 
-/// `FrameTracker` 可以 deref 得到对应的 `[u8; PAGE_SIZE]`
-impl core::ops::Deref for FrameTracker {
-    type Target = [usize];
-
-    fn deref(&self) -> &Self::Target {
-        VPN::from(self.ppn).get_array::<usize>()
-    }
-}
-
-/// `FrameTracker` 可以 deref 得到对应的 `[u8; PAGE_SIZE]`
-impl core::ops::DerefMut for FrameTracker {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        VPN::from(self.ppn).get_array::<usize>()
-    }
-}
+pub type FrameTracker = Arc<Frame>;
 
 trait FrameAllocator {
     fn new() -> Self;
     fn alloc(&mut self) -> Option<FrameTracker>;
-    fn dealloc(&mut self, ft: &FrameTracker);
+    fn dealloc(&mut self, ft: &Frame);
 }
 
 pub struct StackFrameAllocator {
@@ -85,18 +71,18 @@ impl FrameAllocator for StackFrameAllocator {
 
     fn alloc(&mut self) -> Option<FrameTracker> {
         if let Some(ppn) = self.recycled.pop() {
-            Some(FrameTracker::new(ppn.into()))
+            Some(Arc::new(Frame::new(ppn.into())))
         } else {
             if self.current == self.end {
                 None
             } else {
                 self.current += 1;
-                Some(FrameTracker::new((self.current - 1).into()))
+                Some(Arc::new(Frame::new((self.current - 1).into())))
             }
         }
     }
 
-    fn dealloc(&mut self, ft: &FrameTracker) {
+    fn dealloc(&mut self, ft: &Frame) {
         let ppn = ft.ppn.into();
         // validity check
         if ppn >= self.current || self.recycled.iter().find(|&v| *v == ppn).is_some() {

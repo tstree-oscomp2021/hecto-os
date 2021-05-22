@@ -59,6 +59,18 @@ impl TrapFrame for TrapFrameImpl {
         self
     }
 
+    /// 设置返回值
+    fn set_return_value(&mut self, value: usize) -> &mut Self {
+        self.x[10] = value;
+        self
+    }
+
+    /// 设置入口
+    fn set_entry_point(&mut self, value: usize) -> &mut Self {
+        self.sepc = value;
+        self
+    }
+
     /// 按照函数调用规则写入参数
     ///
     /// 没有考虑一些特殊情况，例如超过 8 个参数，或 struct 空间展开

@@ -203,9 +203,9 @@ pub extern "C" fn virtio_dma_alloc(pages: usize) -> PA {
 
 #[no_mangle]
 pub extern "C" fn virtio_dma_dealloc(pa: PA, pages: usize) -> i32 {
-    let mut ppn_base: PPN = pa.into();
+    let mut ppn_base: PPN = pa.floor();
     for _ in 0..pages {
-        core::mem::drop(FrameTracker { ppn: ppn_base });
+        core::mem::drop(Frame { ppn: ppn_base });
         ppn_base += 1;
     }
     0

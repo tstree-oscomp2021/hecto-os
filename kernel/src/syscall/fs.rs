@@ -7,7 +7,7 @@ use super::*;
 use crate::{
     fs::*,
     io::{Read, Write},
-    process::process::MAX_FD,
+    process::process::ProcessInner,
 };
 
 const AT_FDCWD: usize = -100isize as usize;
@@ -113,7 +113,7 @@ pub(super) fn sys_dup3(oldfd: usize, newfd: usize, _flags: usize) -> isize {
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(oldf) = process_inner.fd_table[oldfd].as_ref() {
         let newf = Some(oldf.clone());
-        if newfd < MAX_FD {
+        if newfd < ProcessInner::MAX_FD {
             if newfd >= process_inner.fd_table.len() {
                 process_inner.fd_table.resize(newfd + 1, None);
             }

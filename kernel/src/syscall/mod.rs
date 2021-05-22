@@ -40,7 +40,13 @@ pub fn syscall_handler() {
         SyscallImpl::mount => unimplemented!(),
         SyscallImpl::fstat => unimplemented!(),
         // 进程管理相关 6 个
-        SyscallImpl::clone => todo!(),
+        SyscallImpl::clone => sys_clone(
+            args[0] as u64,
+            args[1] as *mut usize,
+            args[2] as *mut usize,
+            args[3],
+            args[4] as *mut usize,
+        ),
         SyscallImpl::execve => todo!(),
         SyscallImpl::wait4 => todo!(),
         SyscallImpl::exit => sys_exit(args[0] as isize),

@@ -27,6 +27,9 @@ bitflags! {
         const ACCESSED =    1 << 6;
         /// 已修改位
         const DIRTY =       1 << 7;
+
+        /// Copy-on-Write
+        const COW =         1 << 8;
     }
 }
 
@@ -39,9 +42,12 @@ impl PTE for PTEImpl {
     const WRITABLE: Self = Self::WRITABLE;
 
     fn new(ppn: PPN, flags: Self) -> Self {
-        Self {
-            bits: ppn.0 << 10 | flags.bits as usize,
-        }
+        unsafe { Self::from_bits_unchecked(ppn.0 << 10) | Self::from_bits_truncate(flags.bits) }
+    }
+
+    fn set_ppn(&mut self, ppn: PPN) {
+        *self =
+            unsafe { Self::from_bits_unchecked(ppn.0 << 10) | Self::from_bits_truncate(self.bits) };
     }
 
     fn ppn(self) -> PPN {
@@ -83,6 +89,9 @@ impl PageTable for PageTableImpl {
         for &idx in &idxs[1..] {
             if !pte.is_valid() {
                 let frame = frame_alloc().unwrap();
+                VPN::from(frame.ppn)
+                    .get_array::<PTEImpl>()
+                    .fill(PTEImpl::EMPTY);
                 *pte = PTEImpl::new(frame.ppn, PTEImpl::VALID);
                 self.frames.push(frame);
             }

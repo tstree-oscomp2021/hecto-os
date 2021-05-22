@@ -5,8 +5,11 @@ use crate::{
     arch::{TaskContextImpl, __switch},
     process::*,
     processor::current_processor,
+    trap::interface::TrapFrame,
 };
 
+/// 线程退出
+/// 如果是进程中的最后一个线程，进程也退出，向父进程发送消息
 pub(super) fn sys_exit(_status: isize) -> ! {
     unsafe {
         // 1. unmap 当前线程的用户栈
@@ -25,4 +28,24 @@ pub(super) fn sys_exit(_status: isize) -> ! {
         __switch(&cur_task_cx, next_task_cx);
     }
     unreachable!()
+}
+
+/// TODO stack 为 0 的情况、设置参数
+pub(super) fn sys_clone(
+    _flags: u64,
+    stack: *mut usize,
+    _parent_tid: *mut usize,
+    _tls: usize,
+    _child_tid: *mut usize,
+) -> isize {
+    let new_thread = get_current_thread().fork();
+    let trap_frame = new_thread.get_trapframe();
+    trap_frame.set_sp(stack as usize);
+    trap_frame.set_entry_point(unsafe { *stack.offset(0) });
+
+    SCHEDULER.lock(|s| s.add_thread(new_thread.clone()));
+    // 让新的线程先一步调度
+    get_current_thread().switch_to(&new_thread);
+
+    new_thread.get_tid() as isize
 }

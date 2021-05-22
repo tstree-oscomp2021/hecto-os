@@ -46,7 +46,7 @@ QEMU_OPTS	:=	-machine virt \
 GDB			:=	riscv64-elf-gdb
 GDB_OPTS	:=	-ex 'file $(KERNEL_ELF)' \
 				-ex 'set arch riscv:rv64' \
-				-ex 'target remote localhost:1234'"
+				-ex 'target remote localhost:1234'
 
 define colorecho
     @tput setaf 6 2> /dev/null || true

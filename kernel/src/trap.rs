@@ -1,3 +1,5 @@
+use crate::{get_current_thread, VA};
+
 pub mod interface {
     /// 发生中断时，保存的寄存器
     pub trait TrapFrame: Default {
@@ -12,6 +14,12 @@ pub mod interface {
 
         /// 设置返回地址
         fn set_ra(&mut self, value: usize) -> &mut Self;
+
+        /// 设置返回值
+        fn set_return_value(&mut self, value: usize) -> &mut Self;
+
+        /// 设置入口
+        fn set_entry_point(&mut self, value: usize) -> &mut Self;
 
         /// 按照函数调用规则写入参数
         ///
@@ -33,4 +41,13 @@ pub mod interface {
     pub trait Trap {
         fn init();
     }
+}
+
+pub fn handle_pagefault(addr: usize) {
+    get_current_thread()
+        .process
+        .inner
+        .lock()
+        .memory_set
+        .handle_pagefault(VA(addr));
 }

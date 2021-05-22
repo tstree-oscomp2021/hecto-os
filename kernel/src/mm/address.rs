@@ -70,14 +70,7 @@ macro_rules! implement_address_to_page_number {
                 Self(page_number.0 << ConfigImpl::PAGE_SIZE_BITS)
             }
         }
-        /// 实现地址转页号
-        impl From<$address_type> for $page_number_type {
-            /// 从地址转换为页号，直接进行移位操作。不允许转换没有对齐的地址
-            fn from(address: $address_type) -> Self {
-                assert!(address.0 & (ConfigImpl::PAGE_SIZE - 1) == 0);
-                Self(address.0 >> ConfigImpl::PAGE_SIZE_BITS)
-            }
-        }
+
         impl $address_type {
             /// 将地址转换为页号，向下取整
             pub const fn floor(self) -> $page_number_type {
@@ -211,14 +204,9 @@ implement_usize_operations! {VA}
 implement_usize_operations! {PPN}
 implement_usize_operations! {VPN}
 
-// TODO 测试一下有无问题
 unsafe impl Step for VPN {
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        if *start <= *end {
-            Some((*end - *start) as usize)
-        } else {
-            None
-        }
+        Step::steps_between(&start.0, &end.0)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
@@ -232,11 +220,7 @@ unsafe impl Step for VPN {
 
 unsafe impl Step for PPN {
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        if *start <= *end {
-            Some((*end - *start) as usize)
-        } else {
-            None
-        }
+        Step::steps_between(&start.0, &end.0)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
@@ -250,3 +234,52 @@ unsafe impl Step for PPN {
 
 pub type VPNRange = core::ops::Range<VPN>;
 pub type VARange = core::ops::Range<VA>;
+
+/// 一个实现了 `Ord` Trait 的 VARange，还可以转为 VPNRange
+#[derive(Clone)]
+pub struct VARangeOrd(pub VARange);
+
+impl VARangeOrd {
+    /// 获取 VPNRange
+    pub fn vpn_range(&self) -> VPNRange {
+        self.0.start.floor()..self.0.end.ceil()
+    }
+}
+
+impl Ord for VARangeOrd {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        if self.eq(other) {
+            core::cmp::Ordering::Equal
+        } else if self.0.start < other.0.start {
+            core::cmp::Ordering::Less
+        } else {
+            core::cmp::Ordering::Greater
+        }
+    }
+}
+impl PartialOrd for VARangeOrd {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Eq for VARangeOrd {}
+impl PartialEq for VARangeOrd {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.start <= other.0.start && other.0.end <= self.0.end)
+            || (other.0.start <= self.0.start && self.0.end <= other.0.end)
+    }
+}
+
+#[macro_export]
+macro_rules! round_down {
+    ($value: expr, $boundary: expr) => {
+        ($value & !($boundary - 1))
+    };
+}
+
+#[macro_export]
+macro_rules! round_up {
+    ($value: expr, $boundary: expr) => {
+        ($value + $boundary - 1 & !($boundary - 1))
+    };
+}

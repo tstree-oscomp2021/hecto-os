@@ -4,7 +4,7 @@ use riscv::register::{
 };
 
 use super::timer;
-use crate::syscall::syscall_handler;
+use crate::{syscall::syscall_handler, trap::handle_pagefault};
 
 global_asm!(include_str!("./trap.asm"));
 extern "C" {
@@ -35,13 +35,6 @@ impl crate::arch::interface::Trap for TrapImpl {
 /// 中断处理入口
 #[no_mangle]
 pub fn handle_trap(scause: Scause, stval: usize) {
-    // info!(
-    //     "handle_interrupt. sp:{:x} kernel_stack_top: {:x} {:?}",
-    //     sp(),
-    //     sp() & !(KERNEL_STACK_SIZE - 1),
-    //     scause.cause()
-    // );
-
     match scause.cause() {
         // 来自用户态的系统调用
         Trap::Exception(Exception::UserEnvCall) => {
@@ -55,12 +48,20 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         // 外部中断
         Trap::Interrupt(Interrupt::SupervisorExternal) => unimplemented!(),
         // 缺页异常
-        // Trap::Exception(Exception::LoadPageFault)
-        // | Trap::Exception(Exception::StorePageFault)
-        // | Trap::Exception(Exception::InstructionPageFault)
-        // | Trap::Exception(Exception::LoadFault)
-        // | Trap::Exception(Exception::StoreFault)
-        // | Trap::Exception(Exception::InstructionFault) => unimplemented!(),
+        Trap::Exception(Exception::LoadPageFault)
+        | Trap::Exception(Exception::StorePageFault)
+        | Trap::Exception(Exception::InstructionPageFault)
+        | Trap::Exception(Exception::LoadFault)
+        | Trap::Exception(Exception::StoreFault)
+        | Trap::Exception(Exception::InstructionFault) => {
+            debug!(
+                "cause: {:?}, stval: {:x}, sepc: {:x}",
+                scause.cause(),
+                stval,
+                sepc::read()
+            );
+            handle_pagefault(stval);
+        }
         // 其他情况，无法处理
         _ => {
             panic!(

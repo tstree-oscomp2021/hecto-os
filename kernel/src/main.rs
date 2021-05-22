@@ -24,6 +24,7 @@ pub mod logger;
 pub mod backtrace;
 pub mod drivers;
 pub mod fs;
+#[macro_use]
 pub mod mm;
 pub mod process;
 pub mod sync;

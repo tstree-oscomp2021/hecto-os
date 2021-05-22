@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, string::String, sync::Arc, vec, vec::Vec};
+use alloc::{collections::BTreeMap, string::String, sync::Arc, vec, vec::Vec};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -22,7 +22,7 @@ lazy_static! {
                 cwd: String::from("/"),
                 memory_set: MemorySet {
                     page_table: crate::mm::page_table::kernel_page_table(),
-                    areas: BTreeSet::new(),
+                    areas: BTreeMap::<VARangeOrd, MapArea>::new(),
                 },
                 fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
             }),
@@ -61,20 +61,29 @@ impl Process {
         })
     }
 
-    /// TODO 用户栈最好是能够和程序段贴紧一些，可以减少分配页表的开销
-    /// TODO 加一个 field，保存被 unmap 过的 user_stack_top
-    /// TODO 从 elf 创建进程的时候就对齐成 PAGE_SIZE
-    /// 的话，这里就不需要向上取整了 TODO 按需分配
+    /// fork 进程
+    pub fn fork(&self, pid: usize) -> Arc<Self> {
+        let mut process_inner = self.inner.lock();
+        Arc::new(Self {
+            pid,
+            inner: Mutex::new(ProcessInner {
+                cwd: process_inner.cwd.clone(),
+                memory_set: process_inner.memory_set.fork(),
+                fd_table: process_inner.fd_table.clone(),
+            }),
+        })
+    }
+
+    /// 分配并映射线程的用户栈
     pub fn alloc_user_stack(&self) -> VA {
         let mut inner = self.inner.lock();
-        let last = inner.memory_set.areas.last().unwrap().va_range.end.0;
-        let user_stack_top = VA(((last + ConfigImpl::PAGE_SIZE - 1)
-            & !(ConfigImpl::PAGE_SIZE - 1))
-            + ConfigImpl::PAGE_SIZE
-            + ConfigImpl::USER_STACK_SIZE);
+        let user_stack_top = inner
+            .memory_set
+            .alloc_user_area(ConfigImpl::USER_STACK_SIZE);
         inner.memory_set.insert_framed_area(
             user_stack_top - ConfigImpl::USER_STACK_SIZE..user_stack_top,
             PTEImpl::READABLE | PTEImpl::WRITABLE | PTEImpl::USER,
+            None,
         );
 
         user_stack_top
@@ -87,8 +96,9 @@ impl Process {
     }
 }
 
-pub const MAX_FD: usize = 101;
 impl ProcessInner {
+    pub const MAX_FD: usize = 101;
+
     pub fn fd_alloc(&mut self) -> isize {
         let len = self.fd_table.len();
         for i in 2..self.fd_table.len() {
@@ -96,7 +106,7 @@ impl ProcessInner {
                 return i as isize;
             }
         }
-        if len == MAX_FD {
+        if len == Self::MAX_FD {
             return -1;
         }
         self.fd_table.push(None);
