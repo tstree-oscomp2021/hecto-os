@@ -52,6 +52,8 @@ pub mod interface {
         const MMIO: [(usize, usize); MMIO_N];
         /// 时钟频率
         const CLOCK_FREQ: usize;
+        /// boot cpu id
+        const BOOT_CPU_ID: usize;
 
         /// PAGE 大小
         const PAGE_SIZE: usize = 1 << Self::PAGE_SIZE_BITS;

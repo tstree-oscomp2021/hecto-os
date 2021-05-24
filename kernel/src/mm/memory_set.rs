@@ -113,7 +113,7 @@ impl MemorySet {
             map_type: MapType::Framed,
             map_perm,
         };
-        // trace!("{:#x?} {:?}", va_range, map_perm);
+        // debug!("{:#x?} {:?}", va_range, map_perm);
         self.page_table
             .map(VARangeOrd(va_range.clone()), &mut area, data);
         self.areas.insert(VARangeOrd(va_range), area);
@@ -152,12 +152,15 @@ impl MemorySet {
         size += 2 * ConfigImpl::PAGE_SIZE;
 
         let mut area_iter = self.areas.keys();
-        let mut va_end = area_iter.next().unwrap().0.end + size;
+        let mut va_end = VA(round_up!(
+            area_iter.next().unwrap().0.end.0,
+            ConfigImpl::PAGE_SIZE
+        )) + size;
         for area in area_iter {
             if va_end <= area.0.start {
                 break;
             }
-            va_end = area.0.end + size;
+            va_end = VA(round_up!(area.0.end.0, ConfigImpl::PAGE_SIZE)) + size;
         }
 
         va_end - ConfigImpl::PAGE_SIZE

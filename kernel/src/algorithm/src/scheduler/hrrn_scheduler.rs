@@ -1,7 +1,8 @@
 //! 最高响应比优先算法的调度器 [`HrrnScheduler`]
 
-use super::Scheduler;
 use alloc::collections::LinkedList;
+
+use super::Scheduler;
 
 /// 将线程和调度信息打包
 struct HrrnThread<ThreadType: Clone + Eq> {

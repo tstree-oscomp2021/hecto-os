@@ -10,7 +10,7 @@ use crate::{
     process::process::ProcessInner,
 };
 
-const AT_FDCWD: usize = -100isize as usize;
+pub const AT_FDCWD: usize = -100isize as usize;
 
 pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
     let mut process_inner = get_current_thread().process.inner.lock();
@@ -125,7 +125,7 @@ pub(super) fn sys_dup3(oldfd: usize, newfd: usize, _flags: usize) -> isize {
 }
 
 /// TODO 去掉中间重复的 `/` 和 `.`
-fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
+pub fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     let mut path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };
     // 如果是以 / 开头，说明是绝对路径，直接返回
     if path.starts_with('/') {

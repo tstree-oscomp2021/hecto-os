@@ -24,7 +24,7 @@ fatfs = { path = "../fatfs" } # fat 32 文件系统
 # k210-soc = { path = "../k210-soc" }
 
 [features]
-default = []
+default = ["error"]
 
 # log level
 debug = []

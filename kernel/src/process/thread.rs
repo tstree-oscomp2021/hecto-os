@@ -13,11 +13,13 @@ use super::*;
 use crate::{
     arch::{
         PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch,
+        cpu::get_cpu_id,
         interface::{PageTable, Register, TaskContext, TrapFrame},
     },
-    board::{interface::Config, ConfigImpl},
+    board::{interface::Config, sbss_with_stack, ConfigImpl},
     fs::*,
     mm::*,
+    processor::get_sched_cx,
 };
 
 pub struct TidAllocator {
@@ -28,7 +30,7 @@ pub struct TidAllocator {
 impl TidAllocator {
     pub fn new() -> Self {
         TidAllocator {
-            current: 0,
+            current: 2, // XXX 0 和 1 被调度线程使用
             recycled: Vec::with_capacity(4),
         }
     }
@@ -86,6 +88,7 @@ pub struct ThreadInner {
 }
 
 #[allow(unused)]
+#[derive(Clone, Copy)]
 pub enum ThreadStatus {
     Ready,
     Running,
@@ -115,6 +118,39 @@ pub fn get_current_trapframe() -> &'static mut TrapFrameImpl {
 }
 
 impl Thread {
+    /// 初始化当前 CPU 的调度线程
+    pub fn init_sched_thread(entry: usize) -> Arc<Thread> {
+        // 1. 先映射内核栈（即 boot_stack）
+        let tid = get_cpu_id();
+        let kernel_stack_top = get_kernel_stack_range(tid).end;
+        let vpn = kernel_stack_top.floor() - 1; // 内核栈顶所在虚拟页面
+        let ppn: PPN = PPN::from(VA(sbss_with_stack as usize).floor()) + tid; // 物理页面
+        KERNEL_PROCESS.inner.lock().memory_set.page_table.map_one(
+            vpn,
+            ppn,
+            PTEImpl::READABLE | PTEImpl::WRITABLE,
+        );
+
+        // 2. 设置 TaskContext
+        let task_cx = (kernel_stack_top - THREAD_PTR_OFFSET - size_of::<TaskContextImpl>())
+            .get_mut::<TaskContextImpl>();
+        task_cx.set_ra(entry);
+
+        let new_thread = Arc::new(Self {
+            tid: Tid(tid),
+            process: KERNEL_PROCESS.clone(),
+            user_stack_top: VA(0), // 内核线程的用户栈顶为 0，表示没有用户栈
+            task_cx,
+            inner: Mutex::new(ThreadInner {
+                status: ThreadStatus::Running,
+            }),
+        });
+        *(kernel_stack_top - THREAD_PTR_OFFSET).get_mut::<usize>() =
+            Arc::<Thread>::as_ptr(&new_thread) as usize;
+
+        new_thread
+    }
+
     /// 创建内核线程
     pub fn new_kernel(entry: usize, _args: Option<&[usize]>) -> Arc<Thread> {
         let tid = TID_ALLOCATOR.lock().alloc();
@@ -200,6 +236,13 @@ impl Thread {
     pub fn fork(&self) -> Arc<Thread> {
         let tid = TID_ALLOCATOR.lock().alloc();
         let process = self.process.fork(tid.0);
+        get_current_thread()
+            .process
+            .inner
+            .lock()
+            .child
+            .push(Arc::downgrade(&process));
+        // 内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
         KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
             kernel_stack_range.clone(),
@@ -232,12 +275,23 @@ impl Thread {
         new_thread
     }
 
-    /// TODO 切换页表，因为每个线程都有可能读写用户区的数据
-    pub fn switch_to(&self, other: &Thread) {
-        other.process.inner.lock().memory_set.page_table.activate();
+    /// 切换到另一个线程
+    pub fn switch_to(&mut self, other: &Thread) {
+        other.activate();
         unsafe {
-            __switch(&self.task_cx, other.task_cx);
+            __switch(core::mem::transmute(&mut self.task_cx), other.task_cx);
         }
+    }
+
+    pub fn yield_to_sched(&mut self) {
+        unsafe {
+            __switch(core::mem::transmute(&mut self.task_cx), *get_sched_cx());
+        }
+    }
+
+    /// 激活线程页表
+    pub fn activate(&self) {
+        self.process.inner.lock().memory_set.page_table.activate();
     }
 
     /// 获取线程的 TrapFrame
@@ -276,7 +330,7 @@ impl Hash for Thread {
 /// 回收内核栈
 impl Drop for Thread {
     fn drop(&mut self) {
-        debug!("{:?} 线程对象 drop", self.tid);
+        debug!("线程 {:?} drop", self.tid);
         // TODO 暂时不移除，留给下一个线程用？
         KERNEL_PROCESS
             .inner

@@ -1,4 +1,11 @@
-use alloc::{collections::BTreeMap, string::String, sync::Arc, vec, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::BTreeMap,
+    string::String,
+    sync::{Arc, Weak},
+    vec,
+    vec::Vec,
+};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -8,6 +15,7 @@ use crate::{
     arch::PTEImpl,
     board::{interface::Config, ConfigImpl},
     fs::{FileDescriptor, STDIN, STDOUT},
+    get_current_thread,
     mm::*,
 };
 
@@ -25,6 +33,10 @@ lazy_static! {
                     areas: BTreeMap::<VARangeOrd, MapArea>::new(),
                 },
                 fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
+                parent: Weak::new(),
+                child: Vec::new(),
+                child_exited: Vec::new(),
+                wake_callbacks: Vec::new(),
             }),
         })
     };
@@ -44,8 +56,16 @@ pub struct ProcessInner {
     pub cwd: String,
     /// 进程中的线程公用页表 / 内存映射
     pub memory_set: MemorySet,
-    /// 文件描述符（文件指针，指向一个文件表项 File）
+    /// 文件描述符
     pub fd_table: Vec<Option<Arc<FileDescriptor>>>,
+    /// 父进程
+    pub parent: Weak<Process>,
+    /// 子进程
+    pub child: Vec<Weak<Process>>,
+    /// 已经退出了的子进程
+    pub child_exited: Vec<(Pid, Weak<Process>)>,
+    /// 回调
+    pub wake_callbacks: Vec<Box<dyn Fn() + Send>>,
 }
 
 impl Process {
@@ -57,6 +77,10 @@ impl Process {
                 cwd: String::from("/"),
                 memory_set: MemorySet::from_elf(file),
                 fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
+                parent: Arc::downgrade(&get_current_thread().process),
+                child: Vec::new(),
+                child_exited: Vec::new(),
+                wake_callbacks: Vec::new(),
             }),
         })
     }
@@ -70,6 +94,10 @@ impl Process {
                 cwd: process_inner.cwd.clone(),
                 memory_set: process_inner.memory_set.fork(),
                 fd_table: process_inner.fd_table.clone(),
+                parent: Arc::downgrade(&get_current_thread().process),
+                child: Vec::new(),
+                child_exited: Vec::new(),
+                wake_callbacks: Vec::new(),
             }),
         })
     }

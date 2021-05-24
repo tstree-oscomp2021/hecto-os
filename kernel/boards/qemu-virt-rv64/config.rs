@@ -23,4 +23,6 @@ impl Config<1> for ConfigImpl {
     const MMIO: [(usize, usize); 1] = [(0x10001000, 0x1000)];
     /// 时钟频率
     const CLOCK_FREQ: usize = 12_500_000;
+    /// boot cpu id
+    const BOOT_CPU_ID: usize = 0;
 }
