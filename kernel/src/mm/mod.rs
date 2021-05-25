@@ -22,9 +22,19 @@ pub fn init() {
 
 /// bss 段清零
 pub fn clear_bss() {
-    use crate::board::*;
+    use crate::board::{interface::Config, ConfigImpl, *};
     unsafe {
-        core::slice::from_raw_parts_mut(sbss as *mut usize, ebss as usize - sbss as usize).fill(0);
+        let mut cur = sbss as *mut usize;
+        let end = ebss as *mut usize;
+        while cur < end {
+            core::ptr::write_volatile(cur, core::mem::zeroed());
+            cur = cur.offset(1);
+        }
+
+        // 测试后面的内存是否能访问
+        cur = (ConfigImpl::MEMORY_END as *mut usize).offset(-1);
+        *cur = 0x1234_5678;
+        assert_eq!(*cur, 0x1234_5678);
     }
 }
 

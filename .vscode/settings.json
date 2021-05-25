@@ -1,5 +1,11 @@
 {
   "rust-analyzer.checkOnSave.allTargets": false,
   "rust-analyzer.checkOnSave.target": "riscv64imac-unknown-none-elf",
-  "rust-analyzer.cargo.target": "riscv64imac-unknown-none-elf"
+  "rust-analyzer.cargo.target": "riscv64imac-unknown-none-elf",
+  "rust-analyzer.cargo.features": [
+    // "qemu-virt-rv64",
+    "k210",
+    "error"
+  ],
+  "rust-analyzer.cargo.noDefaultFeatures": true
 }

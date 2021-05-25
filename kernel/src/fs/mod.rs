@@ -1,7 +1,7 @@
 use fatfs::{Dir, FileSystem, FsOptions};
 use lazy_static::*;
 
-use crate::{drivers::*, io::*};
+use crate::{drivers::*, io::Read};
 
 mod file;
 mod vnode;
@@ -9,14 +9,19 @@ mod vnode;
 pub use file::{file_open, mkdir, FileDescriptor, OpenFlags, StatMode, STDIN, STDOUT};
 pub use vnode::Vnode;
 
+#[cfg(feature = "qemu-virt-rv64")]
+type BlockDeviceImpl = VirtIOBlock;
+#[cfg(feature = "k210")]
+type BlockDeviceImpl = SDCardWrapper;
+
 lazy_static! {
     // 文件系统
-    pub static ref FILE_SYSTEM: FileSystem<BlockDeviceImpl> = {
+    pub static ref FILE_SYSTEM: FileSystem<BufBlockDevice<BlockDeviceImpl>> = {
         info!("初始化块设备驱动和 FAT32 文件系统");
-        FileSystem::new(BlockDeviceImpl::new(), FsOptions::new()).unwrap()
+        FileSystem::new(BufBlockDevice::new(), FsOptions::new()).unwrap()
     };
     // 根目录
-    pub static ref ROOT_DIR: Dir<'static, BlockDeviceImpl> = FILE_SYSTEM.root_dir();
+    pub static ref ROOT_DIR: Dir<'static, BufBlockDevice<BlockDeviceImpl>> = FILE_SYSTEM.root_dir();
 }
 
 /// 初始化块设备驱动和文件系统

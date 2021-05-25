@@ -19,16 +19,25 @@ xmas-elf = { path = '../vendor/xmas-elf' } # 解析 elf
 algorithm = { path = 'src/algorithm' }
 core_io = { path = "../core_io", features = ["collections"] }
 fatfs = { path = "../fatfs" } # fat 32 文件系统
-# k210-hal = { path = "../k210-hal" }
-# k210-pac = { path = "../k210-pac" }
-# k210-soc = { path = "../k210-soc" }
+k210-hal = { path = "../k210-hal" }
+k210-pac = { path = "../k210-pac" }
+k210-soc = { path = "../k210-soc" }
 
 [features]
-default = ["error"]
+default = []
+
+# board
+k210 = ["riscv64"]
+qemu-virt-rv64 = ["riscv64"]
+
+# arch
+aarch64 = []
+riscv64 = []
 
 # log level
 debug = []
 error = []
 info = []
+none = []
 trace = []
 warn = []

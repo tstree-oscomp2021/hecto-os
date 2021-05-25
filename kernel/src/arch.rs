@@ -1,3 +1,4 @@
+#[cfg(feature = "riscv64")]
 #[path = "../arch/riscv/mod.rs"]
 mod arch_impl;
 

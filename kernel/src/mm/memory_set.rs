@@ -2,7 +2,7 @@ use alloc::{collections::BTreeMap, sync::Arc};
 
 use xmas_elf::{program::Type, ElfFile};
 
-use super::{FrameTracker, VARange, VARangeOrd, VPNRange, VA, VPN};
+use super::{FrameTracker, VARange, VARangeOrd, VA, VPN};
 use crate::{
     arch::{
         interface::{PageTable, PTE},
@@ -18,6 +18,8 @@ pub enum MapType {
     Linear,
     /// 按帧映射
     Framed,
+    /// 设备
+    Device,
 }
 
 /// 一段连续地址的虚拟内存映射片段，Linux 中，线性区描述符为 vm_area_struct
@@ -37,8 +39,21 @@ pub struct MemorySet {
 impl MemorySet {
     /// 创建一个映射了内核区域的 MemorySet
     pub fn new_kernel() -> Self {
+        let mut page_table = PageTableImpl::new_kernel();
+        for pair in ConfigImpl::MMIO {
+            page_table.map(
+                VARangeOrd(VA(pair.0)..VA(pair.0 + pair.1)),
+                &mut MapArea {
+                    data_frames: BTreeMap::new(),
+                    map_type: MapType::Device,
+                    map_perm: PTEImpl::READABLE | PTEImpl::WRITABLE,
+                },
+                None,
+            );
+        }
+
         Self {
-            page_table: PageTableImpl::new_kernel(),
+            page_table,
             areas: BTreeMap::<VARangeOrd, MapArea>::new(),
         }
     }
@@ -67,7 +82,7 @@ impl MemorySet {
     pub fn handle_pagefault(&mut self, va: VA) {
         let vpn = va.floor();
         let pte = self.page_table.find_pte(vpn).unwrap();
-        // trace!("{:?}", pte);
+        debug!("{:?} vpn {:#x} ppn {:#x}", pte, vpn.0, pte.ppn().0);
         if !pte.contains(PTEImpl::COW) {
             panic!("handle_pagefault error");
         }
@@ -85,6 +100,11 @@ impl MemorySet {
             pte.set_ppn(new_frame.ppn);
             // trace!("{:?}", pte);
             *frame = new_frame;
+
+            #[cfg(feature = "k210")]
+            unsafe {
+                asm!("fence", "fence.i", ".word 0x10400073", "fence", "fence.i");
+            }
         }
     }
 

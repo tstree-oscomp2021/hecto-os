@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(
+    asm,
     global_asm,
     llvm_asm,
     panic_info_message,

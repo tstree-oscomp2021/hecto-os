@@ -14,8 +14,8 @@ KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
 
 # BOARD
-SBI			?=	rustsbi-0.2.0-alpha.3
-BOOTLOADER	:=	$(ROOT_DIR)/res/$(SBI)-qemu.bin
+SBI			?=	rustsbi-0.2.0-alpha.4
+BOOTLOADER	:=	$(ROOT_DIR)/res/$(SBI)-$(BOARD).bin
 
 # Binutils
 OBJDUMP		:=	rust-objdump --arch-name=riscv64
@@ -24,9 +24,12 @@ READELF		:=	riscv64-elf-readelf
 
 # Build Options
 LOG 		?=	debug
+BOARD		?=
+ARCH		?=
+
 RUSTFLAGS	:=	-C link-arg=-T$(MAKEFILE_DIR)linker.ld -C force-frame-pointers=yes
-FEATURES	:=	--features $(LOG)
-BUILD_ARGS	:=	$(FEATURES) --target=$(TARGET)
+FEATURES	:=	"$(LOG) $(BOARD) $(ARCH)"
+BUILD_ARGS	:=	--features $(FEATURES) --target=$(TARGET) --no-default-features
 ifeq ($(MODE), release)
 	BUILD_ARGS += --release
 endif
@@ -54,11 +57,9 @@ define colorecho
     @tput sgr0 2> /dev/null || true
 endef
 
-all: $(KERNEL_BIN)
-
 $(KERNEL_ELF):
 	$(call colorecho, "Compiling kernel - $(BOARD)")
-	@RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline
+	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
@@ -74,4 +75,4 @@ readelf:
 	$(call colorecho, "Launching readelf")
 	@$(READELF) --headers $(KERNEL_ELF)
 
-.PHONY: all $(KERNEL_ELF) $(KERNEL_BIN) clean disasm readelf
+.PHONY: $(KERNEL_ELF) $(KERNEL_BIN) clean disasm readelf

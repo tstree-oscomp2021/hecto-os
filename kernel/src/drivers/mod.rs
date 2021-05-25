@@ -1,3 +1,3 @@
-mod block;
+pub use block::{BufBlockDevice, SDCardWrapper, VirtIOBlock};
 
-pub use block::BlockDeviceImpl;
+mod block;

@@ -38,20 +38,28 @@ pub trait PageTable {
     /// 重新映射
     fn remap_one(&mut self, vpn: VPN, ppn: PPN, flags: PTEImpl) {
         let pte: &mut PTEImpl = self.find_pte(vpn).unwrap();
-        assert!(pte.is_valid(), "vpn {:#x?} has not been mapped before", vpn);
+        assert!(pte.is_valid(), "vpn {:x} has not been mapped before", vpn.0);
         *pte = PTEImpl::new(ppn, flags | PTEImpl::VALID);
     }
 
     /// 将 vpn 和 ppn（虚拟页面与物理页面）建立起联系
     fn map_one(&mut self, vpn: VPN, ppn: PPN, flags: PTEImpl) {
         let pte: &mut PTEImpl = self.find_pte_create(vpn).unwrap();
-        assert!(!pte.is_valid(), "vpn {:#x?} has been mapped before", vpn);
+        assert!(
+            !pte.is_valid(),
+            "vpn {:#x} ppn {:#x} has been mapped before, {:?}, ppn {:#x}",
+            vpn.0,
+            ppn.0,
+            pte,
+            pte.ppn().0
+        );
+        // println!("map vpn {:#x}, ppn {:#x}", vpn.0, ppn.0);
         *pte = PTEImpl::new(ppn, flags | PTEImpl::VALID);
     }
     /// unmap 一个页面
     fn unmap_one(&mut self, vpn: VPN) {
         let pte: &mut PTEImpl = self.find_pte(vpn).unwrap();
-        assert!(pte.is_valid(), "vpn {:#x?} has not been mapped before", vpn);
+        assert!(pte.is_valid(), "vpn {:x} has not been mapped before", vpn.0);
         *pte = PTEImpl::EMPTY;
     }
 
@@ -108,6 +116,11 @@ pub trait PageTable {
                     }
                 }
             }
+            MapType::Device => {
+                for vpn in va_range.vpn_range() {
+                    self.map_one(vpn, PPN(vpn.0), area.map_perm);
+                }
+            }
         }
     }
 }
@@ -127,8 +140,11 @@ lazy_static! {
 // TODO 应放在 board 里
 /// 仅在初始化 KERNEL_PROCESS 时被调用
 pub fn kernel_page_table() -> PageTableImpl {
-    let mut frame = frame_alloc().unwrap();
-    unsafe { Arc::get_mut_unchecked(&mut frame) }.zero();
+    let frame = frame_alloc().unwrap();
+    VPN::from(frame.ppn)
+        .get_array::<PTEImpl>()
+        .fill(PTEImpl::EMPTY);
+    // unsafe { Arc::get_mut_unchecked(&mut frame) }.zero();
     let mut page_table = PageTableImpl {
         root: frame,
         frames: vec![],
@@ -169,13 +185,10 @@ pub fn kernel_page_table() -> PageTableImpl {
     }
     for pair in ConfigImpl::MMIO {
         page_table.map(
-            VARangeOrd(
-                (pair.0 + ConfigImpl::KERNEL_MAP_OFFSET).into()
-                    ..(pair.0 + pair.1 + ConfigImpl::KERNEL_MAP_OFFSET).into(),
-            ),
+            VARangeOrd(VA(pair.0)..VA(pair.0 + pair.1)),
             &mut MapArea {
                 data_frames: BTreeMap::new(),
-                map_type: MapType::Linear,
+                map_type: MapType::Device,
                 map_perm: PTEImpl::READABLE | PTEImpl::WRITABLE,
             },
             None,
@@ -186,6 +199,9 @@ pub fn kernel_page_table() -> PageTableImpl {
     let vpn = VA(ConfigImpl::KERNEL_STACK_TOP).floor().indexes()[0];
     let pte: &mut PTEImpl = &mut VPN::from(page_table.root.ppn).get_array()[vpn];
     let frame = frame_alloc().unwrap();
+    VPN::from(frame.ppn)
+        .get_array::<PTEImpl>()
+        .fill(PTEImpl::EMPTY);
     *pte = PTEImpl::new(frame.ppn, PTEImpl::VALID);
     page_table.frames.push(frame);
 

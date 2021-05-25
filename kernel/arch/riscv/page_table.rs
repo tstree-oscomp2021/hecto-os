@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use riscv::register::satp;
 
 use crate::{
     arch::interface::{PageTable, PTE},
@@ -51,7 +50,12 @@ impl PTE for PTEImpl {
     }
 
     fn ppn(self) -> PPN {
-        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+        // K210 的 Sv39 物理地址长度为 50 位而不是 56 位
+        #[cfg(feature = "k210")]
+        return (self.bits >> 10 & ((1usize << 38) - 1)).into();
+
+        #[cfg(not(feature = "k210"))]
+        return (self.bits >> 10 & ((1usize << 44) - 1)).into();
     }
 
     fn is_valid(self) -> bool {
@@ -72,10 +76,12 @@ pub struct PageTableImpl {
 impl PageTable for PageTableImpl {
     fn new_kernel() -> Self {
         let frame = frame_alloc().unwrap();
-        // 不需要清零，直接从 KERNEL_PAGE_TABLE 复制就行！
-        VPN::from(frame.ppn)
-            .get_array::<PTEImpl>()
-            .copy_from_slice(VPN::from(KERNEL_PAGE_TABLE.root.ppn).get_array::<PTEImpl>());
+        // 前 256 个 PTE 清零
+        VPN::from(frame.ppn).get_array::<PTEImpl>()[..256].fill(PTEImpl::EMPTY);
+        // 从 KERNEL_PAGE_TABLE 复制高 256G 的内核区域的映射关系
+        VPN::from(frame.ppn).get_array::<PTEImpl>()[256..]
+            .copy_from_slice(&VPN::from(KERNEL_PAGE_TABLE.root.ppn).get_array::<PTEImpl>()[256..]);
+
         PageTableImpl {
             root: frame,
             frames: vec![],
@@ -115,11 +121,26 @@ impl PageTable for PageTableImpl {
 
     /// 激活页表
     fn activate(&self) {
-        // Sv39
-        let satp = 8usize << 60 | self.root.ppn.0;
-        unsafe {
-            satp::write(satp);
-            llvm_asm!("sfence.vma" :::: "volatile");
+        #[cfg(feature = "k210")]
+        {
+            // Sv39
+            let sptbr = self.root.ppn.0 & ((1usize << 38) - 1);
+            unsafe {
+                // 写入 sptbr 寄存器
+                llvm_asm!("csrw 0x180, $0"::"r"(sptbr));
+                // sfence.vm
+                asm!("fence", "fence.i", ".word 0x10400073", "fence", "fence.i");
+            }
+        }
+
+        #[cfg(not(feature = "k210"))]
+        {
+            // Sv39
+            let satp = 9usize << 60 | self.root.ppn.0;
+            unsafe {
+                satp::write(satp);
+                asm!("sfence.vma");
+            }
         }
     }
 }

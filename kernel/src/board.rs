@@ -1,4 +1,9 @@
+#[cfg(feature = "qemu-virt-rv64")]
 #[path = "../boards/qemu-virt-rv64/main.rs"]
+mod board_impl;
+
+#[cfg(feature = "k210")]
+#[path = "../boards/k210/main.rs"]
 mod board_impl;
 
 pub mod interface {
