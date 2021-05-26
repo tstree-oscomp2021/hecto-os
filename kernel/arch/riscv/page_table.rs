@@ -136,9 +136,9 @@ impl PageTable for PageTableImpl {
         #[cfg(not(feature = "k210"))]
         {
             // Sv39
-            let satp = 9usize << 60 | self.root.ppn.0;
+            let satp = 8usize << 60 | self.root.ppn.0;
             unsafe {
-                satp::write(satp);
+                riscv::register::satp::write(satp);
                 asm!("sfence.vma");
             }
         }

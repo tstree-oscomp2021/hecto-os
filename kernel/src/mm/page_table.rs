@@ -125,7 +125,7 @@ pub trait PageTable {
     }
 }
 
-use alloc::{collections::BTreeMap, sync::Arc, vec};
+use alloc::{collections::BTreeMap, vec};
 
 use lazy_static::lazy_static;
 

@@ -3,7 +3,7 @@ MAKEFILE_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 # 当前文件 Makefile.common 所在目录的绝对路径
 MAKEFILE_COMMON_DIR	:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 # 项目的绝对路径
-ROOT_DIR := $(dir $(abspath $(MAKEFILE_COMMON_DIR)))..
+ROOT_DIR := $(abspath $(MAKEFILE_COMMON_DIR)../..)
 # target 目录
 TARGET_DIR := $(ROOT_DIR)/target/$(TARGET)
 
@@ -14,8 +14,8 @@ KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
 
 # BOARD
-SBI			?=	rustsbi-0.2.0-alpha.4
-BOOTLOADER	:=	$(ROOT_DIR)/res/$(SBI)-$(BOARD).bin
+SBI			?=
+BOOTLOADER	:=	$(ROOT_DIR)/res/$(SBI).bin
 
 # Binutils
 OBJDUMP		:=	rust-objdump --arch-name=riscv64
