@@ -64,6 +64,11 @@ $(KERNEL_ELF):
 $(KERNEL_BIN): $(KERNEL_ELF)
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
 
+build: $(KERNEL_BIN)
+
+check:
+	RUSTFLAGS="$(RUSTFLAGS)" cargo check $(BUILD_ARGS) --offline
+
 clean:
 	@cargo clean
 

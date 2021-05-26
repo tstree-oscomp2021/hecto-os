@@ -1,3 +1,4 @@
+#![allow(warnings)]
 pub mod version;
 pub mod range;
 

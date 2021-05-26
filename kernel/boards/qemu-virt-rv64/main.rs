@@ -26,7 +26,7 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
         mm::init();
     }
 
-    // 初始化块设备驱动之前先激活新页表
+    // remap kernel
     mm::KERNEL_PAGE_TABLE.activate();
 
     if hart_id == ConfigImpl::BOOT_CPU_ID {

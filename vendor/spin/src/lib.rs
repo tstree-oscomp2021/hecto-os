@@ -1,3 +1,4 @@
+#![allow(warnings)]
 #![crate_type = "lib"]
 #![warn(missing_docs)]
 

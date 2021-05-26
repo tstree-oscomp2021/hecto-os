@@ -1,3 +1,4 @@
+#![allow(warnings)]
 //! AHash is a hashing algorithm is intended to be a high performance, (hardware specific), keyed hash function.
 //! This can be seen as a DOS resistant alternative to `FxHash`, or a fast equivalent to `SipHash`.
 //! It provides a high speed hash algorithm, but where the result is not predictable without knowing a Key.

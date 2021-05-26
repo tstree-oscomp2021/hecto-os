@@ -1,3 +1,4 @@
+#![allow(warnings)]
 #![no_std]
 #![warn(box_pointers, missing_copy_implementations, missing_debug_implementations)]
 #![warn(unused_extern_crates, unused_import_braces, unused_qualifications, unused_results)]

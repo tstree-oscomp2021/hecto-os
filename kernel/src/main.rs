@@ -1,21 +1,17 @@
 #![no_std]
 #![no_main]
+#![allow(incomplete_features)]
 #![feature(
     asm,
     global_asm,
     llvm_asm,
     panic_info_message,
     alloc_error_handler,
-    drain_filter,
-    linked_list_remove,
     format_args_nl,
     step_trait_ext,
     step_trait,
-    rustc_attrs,
-    map_first_last,
     get_mut_unchecked,
-    const_generics,
-    const_raw_ptr_to_usize_cast
+    const_generics
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
