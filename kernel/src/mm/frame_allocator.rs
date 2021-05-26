@@ -52,7 +52,7 @@ impl StackFrameAllocator {
     pub fn init(&mut self, l: PPN, r: PPN) {
         self.current = l.0;
         self.end = r.0;
-        info!(
+        println!(
             "last {} Physical Frames: [{:#x}, {:#x}]",
             self.end - self.current,
             self.current,
@@ -108,7 +108,7 @@ pub fn init_frame_allocator() {
         VA(ekernel as usize).ceil().into(),
         VA(ConfigImpl::MEMORY_END).floor().into(),
     );
-    info!("frame allocator initialized");
+    println!("frame allocator initialized");
 }
 
 pub fn frame_alloc() -> Option<FrameTracker> {

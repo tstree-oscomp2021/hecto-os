@@ -63,40 +63,40 @@ path = "tests/bench.rs"
 harness = false
 name = "map"
 path = "tests/map_tests.rs"
-[dev-dependencies.criterion]
-version = "0.3.2"
+# [dev-dependencies.criterion]
+# version = "0.3.2"
 
-[dev-dependencies.fnv]
-version = "1.0.5"
+# [dev-dependencies.fnv]
+# version = "1.0.5"
 
-[dev-dependencies.fxhash]
-version = "0.2.1"
+# [dev-dependencies.fxhash]
+# version = "0.2.1"
 
-[dev-dependencies.hex]
-version = "0.4.2"
+# [dev-dependencies.hex]
+# version = "0.4.2"
 
-[dev-dependencies.no-panic]
-version = "0.1.10"
+# [dev-dependencies.no-panic]
+# version = "0.1.10"
 
-[dev-dependencies.rand]
-version = "0.7.3"
+# [dev-dependencies.rand]
+# version = "0.7.3"
 
-[dev-dependencies.seahash]
-version = "4.0"
+# [dev-dependencies.seahash]
+# version = "4.0"
 
-[dev-dependencies.serde_json]
-version = "1.0.59"
+# [dev-dependencies.serde_json]
+# version = "1.0.59"
 [build-dependencies.version_check]
 path = "../version_check"
 # version = "0.9"
 
 [features]
-compile-time-rng = ["const-random"]
+# compile-time-rng = ["const-random"]
 default = ["std"]
 std = []
-[target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.const-random]
-optional = true
-version = "0.1.12"
+# [target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.const-random]
+# optional = true
+# version = "0.1.12"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.getrandom]
 path = "../getrandom"
@@ -108,13 +108,13 @@ features = ["unstable", "alloc"]
 path = "../once_cell"
 version = "1.5.2"
 
-[target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.serde]
-optional = true
-version = "1.0.117"
-[target."cfg(not(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\")))".dependencies.const-random]
-optional = true
-version = "0.1.12"
+# [target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.serde]
+# optional = true
+# version = "1.0.117"
+# [target."cfg(not(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\")))".dependencies.const-random]
+# optional = true
+# version = "0.1.12"
 
-[target."cfg(not(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\")))".dependencies.serde]
-optional = true
-version = "1.0.117"
+# [target."cfg(not(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\")))".dependencies.serde]
+# optional = true
+# version = "1.0.117"

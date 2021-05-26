@@ -42,7 +42,7 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
 }
 
 pub fn schedule() {
-    info!("进入调度线程");
+    println!("进入调度线程");
 
     // 添加用户线程
     SCHEDULER.lock(|s| {
@@ -61,7 +61,7 @@ pub fn schedule() {
 
     TrapImpl::init();
 
-    info!("运行用户线程");
+    println!("运行用户线程");
     loop {
         while let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
             let status = next_thread.inner.lock().status;

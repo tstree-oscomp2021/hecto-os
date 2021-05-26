@@ -14,8 +14,8 @@ version = "0.2.0"
 bare-metal = { path = "../vendor/bare-metal" }
 riscv = { path = "../vendor/riscv", features = ["inline-asm"] }
 # riscv = "0.6.0"
-riscv-rt = { version = "0.8", optional = true }
+# riscv-rt = { version = "0.8", optional = true }
 vcell = { path = "../vendor/vcell" }
 
 [features]
-rt = ["riscv-rt"]
+# rt = ["riscv-rt"]

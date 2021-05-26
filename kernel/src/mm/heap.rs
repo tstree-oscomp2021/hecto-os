@@ -29,7 +29,7 @@ pub fn init() {
         HEAP.lock()
             .init(HEAP_SPACE.0.as_ptr() as usize, ConfigImpl::KERNEL_HEAP_SIZE);
     }
-    info!("heap initialized");
+    println!("heap initialized");
 }
 
 /// 空间分配错误的回调
@@ -58,5 +58,5 @@ pub fn heap_test() {
     }
     assert!(bss_range.contains(&(v.as_ptr() as usize)));
     drop(v);
-    info!("heap_test passed!");
+    println!("heap_test passed!");
 }

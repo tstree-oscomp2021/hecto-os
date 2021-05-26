@@ -17,7 +17,7 @@ type BlockDeviceImpl = SDCardWrapper;
 lazy_static! {
     // 文件系统
     pub static ref FILE_SYSTEM: FileSystem<BufBlockDevice<BlockDeviceImpl>> = {
-        info!("初始化块设备驱动和 FAT32 文件系统");
+        println!("init FAT32");
         FileSystem::new(BufBlockDevice::new(), FsOptions::new()).unwrap()
     };
     // 根目录

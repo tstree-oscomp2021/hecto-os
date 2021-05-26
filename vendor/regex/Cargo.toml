@@ -86,17 +86,17 @@ optional = true
 path = "../regex-syntax"
 # version = "0.6.25"
 default-features = false
-[dev-dependencies.lazy_static]
-version = "1"
+# [dev-dependencies.lazy_static]
+# version = "1"
 
-[dev-dependencies.quickcheck]
-default-features = false
-version = "1.0.3"
+# [dev-dependencies.quickcheck]
+# default-features = false
+# version = "1.0.3"
 
-[dev-dependencies.rand]
-default-features = false
-features = ["getrandom", "small_rng"]
-version = "0.8.3"
+# [dev-dependencies.rand]
+# default-features = false
+# features = ["getrandom", "small_rng"]
+# version = "0.8.3"
 
 [features]
 default = ["std", "perf", "unicode", "regex-syntax/default"]

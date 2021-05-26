@@ -26,8 +26,8 @@ version = "1.4.0"
 path = "../spin"
 # version = "0.5.0"
 optional = true
-[dev-dependencies.doc-comment]
-version = "0.3.1"
+# [dev-dependencies.doc-comment]
+# version = "0.3.1"
 
 [features]
 spin_no_std = ["spin"]

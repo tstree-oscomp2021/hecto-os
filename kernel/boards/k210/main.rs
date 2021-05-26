@@ -19,10 +19,12 @@ use crate::{
 #[no_mangle]
 pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
     unsafe {
+        println!("1");
         // 保存 hart_id
         cpu::set_cpu_id(hart_id);
         // 等待 sbi 输出完
         sleep::usleep(100000);
+        println!("2");
         // 配置系统时钟和串口
         sysctl::pll_set_freq(sysctl::pll::PLL0, 800_000_000).unwrap();
         sysctl::pll_set_freq(sysctl::pll::PLL1, 300_000_000).unwrap();
@@ -52,7 +54,7 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
 }
 
 pub fn schedule() {
-    info!("进入调度线程");
+    println!("schedule");
 
     // 添加用户线程
     SCHEDULER.lock(|s| {
@@ -71,7 +73,7 @@ pub fn schedule() {
 
     TrapImpl::init();
 
-    info!("运行用户线程");
+    println!("run use thread");
     loop {
         while let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
             let status = next_thread.inner.lock().status;

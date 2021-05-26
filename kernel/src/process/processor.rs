@@ -66,7 +66,7 @@ pub struct Processor {
 //             s.add_thread(Thread::new_thread("open", None));
 //         });
 //     }
-//     info!("运行用户线程");
+//     println!("运行用户线程");
 
 //     loop {
 //         if let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {

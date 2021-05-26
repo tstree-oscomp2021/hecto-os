@@ -28,13 +28,13 @@ name = "xmas_elf"
 doc = false
 name = "xmas_elf"
 path = "src/bin/main.rs"
-[dependencies.flate2]
-optional = true
-version = "1"
+# [dependencies.flate2]
+# optional = true
+# version = "1"
 
 [dependencies.zero]
 path = "../zero"
 # version = "0.1"
 
 [features]
-compression = ["flate2"]
+# compression = ["flate2"]

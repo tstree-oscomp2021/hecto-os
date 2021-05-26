@@ -24,23 +24,23 @@ version = "0.9.0"
 path = "../semver-parser"
 # version = "0.7.0"
 
-[dependencies.serde]
-optional = true
-version = "1.0"
-[dev-dependencies.crates-index]
-version = "0.5.0"
+# [dependencies.serde]
+# optional = true
+# version = "1.0"
+# [dev-dependencies.crates-index]
+# version = "0.5.0"
 
-[dev-dependencies.serde_json]
-version = "1.0"
+# [dev-dependencies.serde_json]
+# version = "1.0"
 
-[dev-dependencies.serde_derive]
-version = "1.0"
+# [dev-dependencies.serde_derive]
+# version = "1.0"
 
-[dev-dependencies.tempdir]
-version = "0.3.4"
+# [dev-dependencies.tempdir]
+# version = "0.3.4"
 
 [features]
-ci = ["serde"]
+# ci = ["serde"]
 default = []
 [badges.travis-ci]
 repository = "steveklabnik/semver"

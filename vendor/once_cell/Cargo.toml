@@ -11,18 +11,25 @@
 # will likely look very different (and much more reasonable)
 
 [package]
-edition = "2018"
-name = "once_cell"
-version = "1.7.2"
 authors = ["Aleksey Kladov <aleksey.kladov@gmail.com>"]
-exclude = ["*.png", "*.svg", "/Cargo.lock.min", "/.travis.yml", "/run-miri-tests.sh", "rustfmt.toml"]
+categories = ["rust-patterns", "memory-management"]
 description = "Single assignment cells and lazy values."
 documentation = "https://docs.rs/once_cell"
-readme = "README.md"
+edition = "2018"
+exclude = [
+    "*.png",
+    "*.svg",
+    "/Cargo.lock.min",
+    "/.travis.yml",
+    "/run-miri-tests.sh",
+    "rustfmt.toml",
+]
 keywords = ["lazy", "static"]
-categories = ["rust-patterns", "memory-management"]
 license = "MIT OR Apache-2.0"
+name = "once_cell"
+readme = "README.md"
 repository = "https://github.com/matklad/once_cell"
+version = "1.7.2"
 [package.metadata.docs.rs]
 all-features = true
 
@@ -53,18 +60,18 @@ required-features = ["std"]
 [[example]]
 name = "test_synchronization"
 required-features = ["std"]
-[dependencies.parking_lot]
-version = "0.11"
-optional = true
-default_features = false
-[dev-dependencies.crossbeam-utils]
-version = "0.7.2"
+# [dependencies.parking_lot]
+# version = "0.11"
+# optional = true
+# default_features = false
+# [dev-dependencies.crossbeam-utils]
+# version = "0.7.2"
 
-[dev-dependencies.lazy_static]
-version = "1.0.0"
+# [dev-dependencies.lazy_static]
+# version = "1.0.0"
 
-[dev-dependencies.regex]
-version = "1.2.0"
+# [dev-dependencies.regex]
+# version = "1.2.0"
 
 [features]
 alloc = ["race"]

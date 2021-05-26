@@ -17,7 +17,7 @@ pub fn init() {
     heap::init();
     frame_allocator::init_frame_allocator();
 
-    info!("mod memory initialized");
+    println!("mod memory initialized");
 }
 
 /// bss 段清零

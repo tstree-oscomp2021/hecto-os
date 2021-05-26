@@ -28,40 +28,40 @@ rustdoc-args = ["--cfg", "docsrs"]
 path = "../cfg-if"
 version = "1"
 
-[dependencies.compiler_builtins]
-optional = true
-version = "0.1"
+# [dependencies.compiler_builtins]
+# optional = true
+# version = "0.1"
 
-[dependencies.core]
-optional = true
-package = "rustc-std-workspace-core"
-version = "1.0"
+# [dependencies.core]
+# optional = true
+# package = "rustc-std-workspace-core"
+# version = "1.0"
 
 [features]
-custom = []
-js = ["wasm-bindgen", "js-sys"]
-rdrand = []
-rustc-dep-of-std = [
-    "compiler_builtins",
-    "core",
-    "libc/rustc-dep-of-std",
-    "wasi/rustc-dep-of-std",
-]
-std = []
-test-in-browser = []
-[target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.js-sys]
-optional = true
-version = "0.3"
+# custom = []
+# js = ["wasm-bindgen", "js-sys"]
+# rdrand = []
+# rustc-dep-of-std = [
+#     "compiler_builtins",
+#     "core",
+#     "libc/rustc-dep-of-std",
+#     "wasi/rustc-dep-of-std",
+# ]
+# std = []
+# test-in-browser = []
+# [target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.js-sys]
+# optional = true
+# version = "0.3"
 
-[target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.wasm-bindgen]
-default-features = false
-optional = true
-version = "0.2.62"
-[target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dev-dependencies.wasm-bindgen-test]
-version = "0.3.18"
-[target."cfg(target_os = \"wasi\")".dependencies.wasi]
-version = "0.10"
-[target."cfg(unix)".dependencies.libc]
-default-features = false
-path = "../libc"
-version = "0.2.64"
+# [target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.wasm-bindgen]
+# default-features = false
+# optional = true
+# version = "0.2.62"
+# [target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dev-dependencies.wasm-bindgen-test]
+# version = "0.3.18"
+# [target."cfg(target_os = \"wasi\")".dependencies.wasi]
+# version = "0.10"
+# [target."cfg(unix)".dependencies.libc]
+# default-features = false
+# path = "../libc"
+# version = "0.2.64"

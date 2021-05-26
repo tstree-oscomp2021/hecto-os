@@ -84,8 +84,8 @@ pub trait PageTable {
                     Some(data) if data.len() != 0 => {
                         let src_vpn_range = VA::from(data.as_ptr()).floor()
                             ..VA::from(data.as_ptr() as usize + data.len()).ceil();
-                        // info!("src_vpn_range {:x?}", src_vpn_range);
-                        // info!("vpn {:x?}", va_range.vpn_range());
+                        // println!("src_vpn_range {:x?}", src_vpn_range);
+                        // println!("vpn {:x?}", va_range.vpn_range());
                         // XXX va_range.start 和 end 可能并非 4k 对齐的，导致多复制了一些数据
                         for (vpn, src_vpn) in va_range.vpn_range().zip(src_vpn_range) {
                             let dst_frame = frame_alloc().unwrap();

@@ -148,7 +148,7 @@ impl MemorySet {
             if ph.get_type() != Ok(Type::Load) {
                 continue;
             }
-            // info!("{:?}", ph);
+            // println!("{:?}", ph);
             let start_addr = ph.virtual_addr() as usize; // segment 在内存中的虚拟起始地址
             let offset = ph.offset() as usize; // segment 相对于 ELF 文件开头的偏移
             let flags = ph.flags(); // RWX 权限

@@ -30,9 +30,9 @@ default-features = false
 path = "../vendor/byteorder"
 # version = "1"
 
-[dependencies.chrono]
-optional = true
-version = "0.4"
+# [dependencies.chrono]
+# optional = true
+# version = "0.4"
 
 [dependencies.core_io]
 optional = true

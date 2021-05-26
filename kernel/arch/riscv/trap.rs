@@ -28,7 +28,7 @@ impl crate::arch::interface::Trap for TrapImpl {
 
         timer::init();
 
-        info!("mod trap initialized");
+        println!("mod trap initialized");
     }
 }
 
@@ -72,7 +72,7 @@ pub fn handle_trap(scause: Scause, stval: usize) {
             );
         }
     }
-    // info!("handle_interrupt end");
+    // println!("handle_interrupt end");
 }
 
 /// 处理时钟中断

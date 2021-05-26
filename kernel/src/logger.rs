@@ -143,7 +143,7 @@ macro_rules! trace {
 fn panic(info: &PanicInfo) -> ! {
     match info.location() {
         Some(location) => {
-            error!(
+            println!(
                 "[kernel] panicked at '{}', {}:{}:{}",
                 info.message().unwrap(),
                 location.file(),

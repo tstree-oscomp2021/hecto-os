@@ -737,7 +737,7 @@ fn init_sdcard() -> SDCard<SPIImpl<SPI0>> {
     let num_sectors = info.CardCapacity / 512;
     assert!(num_sectors > 0);
 
-    info!("init sdcard!");
+    println!("init sdcard!");
     sd
 }
 
