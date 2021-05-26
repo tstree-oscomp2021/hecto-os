@@ -10,11 +10,12 @@ repository = "https://github.com/riscv-rust/k210-pac"
 version = "0.2.0"
 
 [dependencies]
-bare-metal = "0.2.4"
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+# bare-metal = "0.2.4"
+bare-metal = { path = "../vendor/bare-metal" }
+riscv = { path = "../vendor/riscv", features = ["inline-asm"] }
 # riscv = "0.6.0"
 riscv-rt = { version = "0.8", optional = true }
-vcell = "0.1.2"
+vcell = { path = "../vendor/vcell" }
 
 [features]
 rt = ["riscv-rt"]

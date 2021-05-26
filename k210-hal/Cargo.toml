@@ -13,7 +13,9 @@ version = "0.2.0"
 targets = ["riscv64imac-unknown-none-elf"]
 
 [dependencies]
-bitflags = "1.2.1"
-embedded-hal = "1.0.0-alpha.1"
+# bitflags = "1.2.1"
+bitflags = { path = "../vendor/bitflags" }
+# embedded-hal = "1.0.0-alpha.1"
+embedded-hal = { path = "../vendor/embedded-hal" }
 k210-pac = { path = "../k210-pac" }
-nb = "1.0.0"
+nb = { path = "../vendor/nb" }

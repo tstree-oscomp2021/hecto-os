@@ -9,4 +9,5 @@ version = "0.1.0"
 [dependencies]
 k210-hal = { path = "../k210-hal" }
 k210-pac = { path = "../k210-pac" }
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+# riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+riscv = { path = "/home/hyuuko/OS/hecto-os/vendor/riscv", features = ["inline-asm"] }
