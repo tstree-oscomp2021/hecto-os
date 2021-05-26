@@ -200,12 +200,12 @@ impl BiosParameterBlock {
             warn!("Root entries should fill sectors fully");
         }
 
-        if is_fat32 && self.total_sectors_16 != 0 {
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Invalid total_sectors_16 value in BPB (should be zero for FAT32)",
-            ));
-        }
+        // if is_fat32 && self.total_sectors_16 != 0 {
+        //     return Err(Error::new(
+        //         ErrorKind::Other,
+        //         "Invalid total_sectors_16 value in BPB (should be zero for FAT32)",
+        //     ));
+        // }
 
         if (self.total_sectors_16 == 0) == (self.total_sectors_32 == 0) {
             return Err(Error::new(

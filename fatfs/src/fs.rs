@@ -41,14 +41,15 @@ impl FatType {
     const FAT32_MIN_CLUSTERS: u32 = 65525;
     const FAT32_MAX_CLUSTERS: u32 = 0x0FFF_FFF4;
 
-    pub(crate) fn from_clusters(total_clusters: u32) -> FatType {
-        if total_clusters < Self::FAT16_MIN_CLUSTERS {
-            FatType::Fat12
-        } else if total_clusters < Self::FAT32_MIN_CLUSTERS {
-            FatType::Fat16
-        } else {
-            FatType::Fat32
-        }
+    pub(crate) fn from_clusters(_total_clusters: u32) -> FatType {
+        // if total_clusters < Self::FAT16_MIN_CLUSTERS {
+        //     FatType::Fat12
+        // } else if total_clusters < Self::FAT32_MIN_CLUSTERS {
+        //     FatType::Fat16
+        // } else {
+        //     FatType::Fat32
+        // }
+        FatType::Fat32
     }
 
     pub(crate) fn bits_per_fat_entry(&self) -> u32 {

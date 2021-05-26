@@ -1,7 +1,7 @@
 use fatfs::{Dir, FileSystem, FsOptions};
 use lazy_static::*;
 
-use crate::{drivers::*, io::Read};
+use crate::drivers::{BufBlockDevice, SDCardWrapper};
 
 mod file;
 mod vnode;
@@ -32,12 +32,8 @@ pub fn init() {
 
 #[allow(unused)]
 pub fn test_fat32() {
-    // for app in ROOT_DIR.iter() {
-    //     print!("{}\t", app.unwrap().file_name());
-    // }
-    // println!();
-    let mut file = ROOT_DIR.open_file("test_fat32/FAT32.md").unwrap();
-    let mut data = alloc::string::String::new();
-    file.read_to_string(&mut data).unwrap();
-    println!("{}", data);
+    for app in ROOT_DIR.iter() {
+        print!("{}\t", app.unwrap().file_name());
+    }
+    println!();
 }
