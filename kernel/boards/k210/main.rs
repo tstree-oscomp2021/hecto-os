@@ -35,14 +35,7 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
     if hart_id == ConfigImpl::BOOT_CPU_ID {
         mm::clear_bss();
         mm::init();
-    }
-
-    // 初始化 sd 卡之前需要先开启时钟，
-    TrapImpl::init();
-
-    if hart_id == ConfigImpl::BOOT_CPU_ID {
         fs::init();
-        // fs::test_fat32();
     }
 
     mm::KERNEL_PAGE_TABLE.activate();
@@ -75,6 +68,8 @@ pub fn schedule() {
         s.add_thread(Thread::new_thread("openat", None));
         s.add_thread(Thread::new_thread("open", None));
     });
+
+    TrapImpl::init();
 
     info!("运行用户线程");
     loop {

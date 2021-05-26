@@ -144,7 +144,6 @@ pub fn kernel_page_table() -> PageTableImpl {
     VPN::from(frame.ppn)
         .get_array::<PTEImpl>()
         .fill(PTEImpl::EMPTY);
-    // unsafe { Arc::get_mut_unchecked(&mut frame) }.zero();
     let mut page_table = PageTableImpl {
         root: frame,
         frames: vec![],

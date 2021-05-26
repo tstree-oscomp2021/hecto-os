@@ -27,6 +27,7 @@ lazy_static! {
 /// 初始化块设备驱动和文件系统
 pub fn init() {
     lazy_static::initialize(&FILE_SYSTEM);
+    // test_fat32();
 }
 
 #[allow(unused)]

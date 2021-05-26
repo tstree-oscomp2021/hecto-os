@@ -42,11 +42,11 @@ version = "0.1"
 [dependencies.log]
 path = "../vendor/log"
 # version = "0.4"
-[dev-dependencies.env_logger]
-version = "0.5"
+# [dev-dependencies.env_logger]
+# version = "0.5"
 
-[dev-dependencies.fscommon]
-version = "0.1"
+# [dev-dependencies.fscommon]
+# version = "0.1"
 
 [features]
 alloc = []

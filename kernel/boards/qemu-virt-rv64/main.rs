@@ -24,17 +24,13 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
     if hart_id == ConfigImpl::BOOT_CPU_ID {
         mm::clear_bss();
         mm::init();
+        fs::init();
     }
 
     // remap kernel
     mm::KERNEL_PAGE_TABLE.activate();
 
-    if hart_id == ConfigImpl::BOOT_CPU_ID {
-        fs::init();
-        // fs::test_fat32();
-    }
-
-    // 初始化调度线程
+    // 初始化调度线程，然后切换至调度线程
     let sched_thread = Thread::init_sched_thread(schedule as usize);
     *get_sched_cx() = sched_thread.task_cx;
     unsafe {

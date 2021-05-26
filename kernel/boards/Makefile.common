@@ -80,4 +80,4 @@ readelf:
 	$(call colorecho, "Launching readelf")
 	@$(READELF) --headers $(KERNEL_ELF)
 
-.PHONY: $(KERNEL_ELF) $(KERNEL_BIN) clean disasm readelf
+.PHONY: $(KERNEL_ELF) $(KERNEL_BIN) build check clean disasm readelf

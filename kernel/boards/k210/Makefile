@@ -13,7 +13,7 @@ K210_BOOTLOADER_SIZE := 131072
 K210-SERIALPORT	:= /dev/ttyUSB0
 K210-BURNER		:= $(ROOT_DIR)/res/kflash.py
 
-all: k210
+all: $(K210_BIN)
 
 sdcard: $(TEST_IMG)
 	@echo "Are you sure write to $(SDCARD) ? [y/N] " && read ans && [ $${ans:-N} = y ]
@@ -24,10 +24,8 @@ $(K210_BIN): $(KERNEL_BIN)
 	cp $(BOOTLOADER) $(K210_BIN)
 	dd if=$(KERNEL_BIN) of=$(K210_BIN) bs=$(K210_BOOTLOADER_SIZE) seek=1
 
-build: $(K210_BIN)
-
-run: build
+run: $(K210_BIN)
 	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(K210_BIN)
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 
-.PHONY: all sdcard $(K210_BIN) build run
+.PHONY: all sdcard $(K210_BIN) run
