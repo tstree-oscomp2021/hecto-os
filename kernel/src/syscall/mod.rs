@@ -1,11 +1,13 @@
 //! 各种系统调用
 mod fs;
+mod misc;
 mod process;
 
 use alloc::sync::Arc;
 
 use fs::*;
 use interface::Syscall;
+use misc::*;
 use process::*;
 
 use crate::{arch::SyscallImpl, process::*};
@@ -66,7 +68,7 @@ pub fn syscall_handler() {
         SyscallImpl::munmap => unimplemented!(),
         SyscallImpl::mmap => unimplemented!(),
         SyscallImpl::times => unimplemented!(),
-        SyscallImpl::uname => unimplemented!(),
+        SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
         SyscallImpl::sched_yield => sys_sched_yield(),
         SyscallImpl::gettimeofday => unimplemented!(),
         SyscallImpl::nanosleep => unimplemented!(),

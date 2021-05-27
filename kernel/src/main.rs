@@ -85,7 +85,7 @@ pub fn schedule() {
         "waitpid",
         "wait",
         // "unlink",
-        // "uname",
+        "uname",
         // "umount",
         // "times",
         "read",
