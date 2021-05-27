@@ -5,18 +5,11 @@ use core_io::Read;
 use xmas_elf::ElfFile;
 
 use super::*;
-use crate::{
-    arch::{TaskContextImpl, __switch},
-    fs::ROOT_DIR,
-    process::*,
-    processor::get_sched_cx,
-    trap::interface::TrapFrame,
-    MemorySet,
-};
+use crate::{fs::ROOT_DIR, process::*, trap::interface::TrapFrame, MemorySet};
 
 /// 线程退出
 /// 如果是进程中的最后一个线程，进程也退出，向父进程发送消息
-pub(super) fn sys_exit(_status: isize) -> ! {
+pub(super) fn sys_exit(status: i32) -> ! {
     unsafe {
         // 1. unmap 当前线程的用户栈
         let mut cur_thread = Arc::from_raw(get_current_thread());
@@ -29,6 +22,7 @@ pub(super) fn sys_exit(_status: isize) -> ! {
             parent.inner.lock().child_exited.push((
                 cur_thread.process.pid,
                 Arc::downgrade(&cur_thread.process).clone(),
+                status & 0xFF,
             ));
             if let Some(wake_parent) = parent.inner.lock().wake_callbacks.pop() {
                 wake_parent();
@@ -38,8 +32,7 @@ pub(super) fn sys_exit(_status: isize) -> ! {
         // 因为这是个从裸指针构造的 Arc。但 __switch 不会返回，所以没必要防止析构
         // core::mem::forget(cur_thread);
         // 3. 切换到调度线程
-        let mut cur_task_cx: *const TaskContextImpl = core::mem::transmute(1usize);
-        __switch(&mut cur_task_cx, *get_sched_cx());
+        sys_sched_yield();
     }
     unreachable!()
 }
@@ -71,31 +64,54 @@ pub(super) fn sys_clone(
 /// 子进程通过调用父进程的这个闭包来将父进程的这个线程加进调度器
 /// 不一定非要从调度器中移除，设置 status 即可，调度器调度时判断 status
 /// 在 *wstatus 里存储状态信息
-pub(super) fn sys_wait4(
-    pid: isize,
-    _wstatus: *mut isize,
-    _options: isize,
-    _rusage: *mut (),
-) -> isize {
-    if pid != -1 {
-        todo!();
-    }
+pub(super) fn sys_wait4(pid: isize, wstatus: *mut i32, _options: isize, _rusage: *mut ()) -> isize {
     debug!("父进程 sys_wait4");
     loop {
         let cur_thread = get_current_thread();
         let mut process_inner = cur_thread.process.inner.lock();
-        if let Some((pid, child)) = process_inner.child_exited.pop() {
-            process_inner.child.retain(|c| !c.ptr_eq(&child));
-            return pid as isize;
+        let result = if pid == -1 {
+            if let Some((cpid, child, exit_status)) = process_inner.child_exited.pop() {
+                process_inner.child.retain(|c| !c.ptr_eq(&child));
+                Some((cpid as isize, exit_status))
+            } else {
+                None
+            }
+        } else {
+            if let Some((_, child, exit_status)) = process_inner
+                .child_exited
+                .drain_filter(|c| c.0 == pid as usize)
+                .collect::<Vec<_>>()
+                .pop()
+            {
+                process_inner.child.retain(|c| !c.ptr_eq(&child));
+                Some((pid, exit_status))
+            } else {
+                None
+            }
+        };
+        drop(process_inner);
+
+        // 对用户区内存的读写可能造成 StorePageFault 而发生中断，所以需要在临界区外进行
+        if let Some((cpid, exit_status)) = result {
+            unsafe {
+                if wstatus as usize != 0 {
+                    *wstatus = exit_status << 8;
+                }
+            }
+            return cpid;
         }
 
         let parent_thread: &mut Thread =
             unsafe { core::mem::transmute(cur_thread as *const Thread as usize) };
-        process_inner.wake_callbacks.push(Box::new(move || {
-            debug!("唤醒父进程");
-            parent_thread.inner.lock().status = ThreadStatus::Ready;
-        }));
-        drop(process_inner);
+        cur_thread
+            .process
+            .inner
+            .lock()
+            .wake_callbacks
+            .push(Box::new(move || {
+                debug!("唤醒父进程");
+                parent_thread.inner.lock().status = ThreadStatus::Ready;
+            }));
 
         debug!("父进程睡眠");
         cur_thread.inner.lock().status = ThreadStatus::Waiting;
@@ -117,10 +133,6 @@ pub(super) fn sys_execve(
     app.read_to_end(&mut data).unwrap();
     let elf = ElfFile::new(data.as_slice()).unwrap();
     cur_thread.process.inner.lock().memory_set = MemorySet::from_elf(&elf);
-    // 重新分配用户栈
-    // unsafe {
-    //     cur_thread.dealloc_user_stack();
-    // }
     cur_thread.user_stack_top = cur_thread.process.alloc_user_stack();
     // 设置 TrapFrame
     let trap_frame = get_current_trapframe();
@@ -148,4 +160,9 @@ pub(super) fn sys_getppid() -> isize {
     } else {
         -1
     }
+}
+
+pub(super) fn sys_sched_yield() -> isize {
+    get_current_thread().yield_to_sched();
+    0
 }

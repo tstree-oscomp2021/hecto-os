@@ -2,5 +2,5 @@
 
 ```bash
 cd kernel/boards/qemu-virt-rv64
-make qemu
+make run
 ```

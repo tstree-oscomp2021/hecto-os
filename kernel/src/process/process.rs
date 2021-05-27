@@ -62,8 +62,9 @@ pub struct ProcessInner {
     pub parent: Weak<Process>,
     /// 子进程
     pub child: Vec<Weak<Process>>,
-    /// 已经退出了的子进程
-    pub child_exited: Vec<(Pid, Weak<Process>)>,
+    /// 已经退出了的子进程 (进程ID, 弱引用，exit_status)，其中 exit_status
+    /// 只有低 8 bit 有效
+    pub child_exited: Vec<(Pid, Weak<Process>, i32)>,
     /// 回调
     pub wake_callbacks: Vec<Box<dyn Fn() + Send>>,
 }

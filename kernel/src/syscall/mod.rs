@@ -54,11 +54,11 @@ pub fn syscall_handler() {
         ),
         SyscallImpl::wait4 => sys_wait4(
             args[0] as isize,
-            args[1] as *mut isize,
+            args[1] as *mut i32,
             args[2] as isize,
             args[3] as *mut (),
         ),
-        SyscallImpl::exit => sys_exit(args[0] as isize),
+        SyscallImpl::exit => sys_exit(args[0] as i32),
         SyscallImpl::getppid => sys_getppid(),
         SyscallImpl::getpid => sys_getpid(),
         // 内存管理相关 8 个
@@ -67,7 +67,7 @@ pub fn syscall_handler() {
         SyscallImpl::mmap => unimplemented!(),
         SyscallImpl::times => unimplemented!(),
         SyscallImpl::uname => unimplemented!(),
-        SyscallImpl::sched_yield => unimplemented!(),
+        SyscallImpl::sched_yield => sys_sched_yield(),
         SyscallImpl::gettimeofday => unimplemented!(),
         SyscallImpl::nanosleep => unimplemented!(),
         // 特定于架构的

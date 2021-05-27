@@ -11,7 +11,8 @@
     step_trait_ext,
     step_trait,
     get_mut_unchecked,
-    const_generics
+    const_generics,
+    drain_filter
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
@@ -63,7 +64,6 @@ pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
     TrapImpl::init();
 
     mm::KERNEL_PAGE_TABLE.activate();
-
     // 初始化调度线程
     let sched_thread = Thread::init_sched_thread(schedule as usize);
     *get_sched_cx() = sched_thread.task_cx;
@@ -78,12 +78,11 @@ pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
 pub fn schedule() {
     println!("schedule");
 
-    use alloc::borrow::ToOwned;
     #[rustfmt::skip]
     let file_name = [
-        // "yield",
+        "yield",
         "write",
-        // "waitpid",
+        "waitpid",
         "wait",
         // "unlink",
         // "uname",
@@ -112,12 +111,12 @@ pub fn schedule() {
         "clone",
         "chdir",
         // "brk",
+        // "sleep"
     ];
 
     let mut testsuits = alloc::collections::VecDeque::new();
     for file in file_name {
-        let file = file.to_owned();
-        testsuits.push_back(Thread::new_thread(file.as_str(), None));
+        testsuits.push_back(Thread::new_thread(file, None));
     }
 
     println!("run user thread");
@@ -133,7 +132,7 @@ pub fn schedule() {
             let status = next_thread.inner.lock().status;
             match status {
                 ThreadStatus::Ready => {
-                    debug!("thread {:?} zhun bei jiu xu", next_thread.tid);
+                    debug!("thread {:?} is ready", next_thread.tid);
                     next_thread.activate();
                     // next_thread.inner.lock().status = ThreadStatus::Running;
                     unsafe {

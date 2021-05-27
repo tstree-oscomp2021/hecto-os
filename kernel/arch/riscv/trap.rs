@@ -38,9 +38,9 @@ pub fn handle_trap(scause: Scause, stval: usize) {
     match scause.cause() {
         // 来自用户态的系统调用
         Trap::Exception(Exception::UserEnvCall) => {
-            // unsafe {
-            //     riscv::register::sstatus::set_sie();
-            // }
+            unsafe {
+                riscv::register::sstatus::set_sie();
+            }
             syscall_handler()
         }
         // 时钟中断
