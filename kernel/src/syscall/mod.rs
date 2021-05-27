@@ -26,7 +26,7 @@ pub fn syscall_handler() {
     context.x[10] = match syscall_id {
         // 文件系统相关 16 个
         SyscallImpl::getcwd => sys_getcwd(args[0] as *mut u8, args[1]),
-        SyscallImpl::pipe2 => todo!(),
+        SyscallImpl::pipe2 => sys_pipe2(args[0] as *mut i32, args[1] as i32),
         SyscallImpl::dup => sys_dup(args[0]),
         SyscallImpl::dup3 => sys_dup3(args[0], args[1], args[2]),
         SyscallImpl::chdir => sys_chdir(args[0] as *const u8),

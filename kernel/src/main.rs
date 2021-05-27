@@ -89,7 +89,7 @@ pub fn schedule() {
         // "umount",
         // "times",
         "read",
-        // "pipe",
+        "pipe",
         "openat",
         "open",
         // "munmap",

@@ -47,8 +47,9 @@ pub(super) fn sys_clone(
     let new_thread = get_current_thread().fork();
     let trap_frame = new_thread.get_trapframe();
     if stack as usize != 0 {
-        trap_frame.set_sp(stack as usize);
-        trap_frame.set_entry_point(unsafe { *stack.offset(0) });
+        trap_frame
+            .set_sp(stack as usize)
+            .set_entry_point(unsafe { *stack.offset(0) });
     }
 
     SCHEDULER.lock(|s| s.add_thread(new_thread.clone()));

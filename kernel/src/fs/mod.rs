@@ -4,9 +4,11 @@ use lazy_static::*;
 use crate::drivers::BufBlockDevice;
 
 mod file;
+pub mod pipe;
 mod vnode;
 
 pub use file::{file_open, mkdir, FileDescriptor, OpenFlags, StatMode, STDIN, STDOUT};
+pub use pipe::{PipeRead, PipeWrite};
 pub use vnode::Vnode;
 
 #[cfg(feature = "qemu-virt-rv64")]

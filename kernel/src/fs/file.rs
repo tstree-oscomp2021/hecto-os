@@ -101,8 +101,8 @@ lazy_static! {
 }
 
 pub struct FileDescriptor {
-    flags: OpenFlags,
-    pos: u64,
+    pub(crate) flags: OpenFlags,
+    pub(crate) pos: u64,
     // 多个 fd 可指向同一个 vnode
     pub vnode: Arc<Vnode>,
 }

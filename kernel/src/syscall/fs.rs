@@ -60,13 +60,13 @@ pub(super) fn sys_openat(
 }
 
 pub(super) fn sys_close(fd: usize) -> isize {
-    get_current_thread()
+    *get_current_thread()
         .process
         .inner
         .lock()
         .fd_table
         .get_mut(fd)
-        .take();
+        .unwrap() = None;
     0
 }
 
@@ -122,6 +122,34 @@ pub(super) fn sys_dup3(oldfd: usize, newfd: usize, _flags: usize) -> isize {
         }
     }
     -1
+}
+
+pub(super) fn sys_pipe2(pipefd: *mut i32, _flags: i32) -> isize {
+    let mut process_inner = get_current_thread().process.inner.lock();
+    let fd_pair = pipe::create_pipe_pair();
+
+    let read_fd = process_inner.fd_alloc() as i32;
+    if read_fd >= 0 {
+        process_inner.fd_table[read_fd as usize] = Some(fd_pair[0].clone());
+    } else {
+        return -1;
+    }
+    let write_fd = process_inner.fd_alloc() as i32;
+    if write_fd >= 0 {
+        process_inner.fd_table[write_fd as usize] = Some(fd_pair[1].clone());
+    } else {
+        process_inner.fd_table[read_fd as usize] = None;
+        return -1;
+    }
+
+    drop(process_inner);
+    // 读写用户区内存之前先 drop 掉锁
+    unsafe {
+        *pipefd.offset(0) = read_fd;
+        *pipefd.offset(1) = write_fd;
+    }
+
+    0
 }
 
 /// TODO 去掉中间重复的 `/` 和 `.`
