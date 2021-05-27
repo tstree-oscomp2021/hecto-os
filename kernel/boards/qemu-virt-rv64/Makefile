@@ -6,7 +6,7 @@ SBI			:=	rustsbi-qemu
 
 include ../Makefile.common
 
-qemu: $(KERNEL_BIN)
+run: $(KERNEL_BIN)
 	@$(QEMU) $(QEMU_OPTS)
 
 debug: $(KERNEL_BIN)

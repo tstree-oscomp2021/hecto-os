@@ -12,4 +12,4 @@ pub mod interface {
 
 pub type ConfigImpl = board_impl::config::ConfigImpl;
 
-pub use board_impl::symbol::*;
+pub use board_impl::{init_board, symbol::*};

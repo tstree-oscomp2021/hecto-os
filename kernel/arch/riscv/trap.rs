@@ -26,7 +26,7 @@ impl crate::arch::interface::Trap for TrapImpl {
             // sie::set_ssoft();
         }
 
-        timer::init();
+        // timer::init();
 
         println!("mod trap initialized");
     }
@@ -38,9 +38,9 @@ pub fn handle_trap(scause: Scause, stval: usize) {
     match scause.cause() {
         // 来自用户态的系统调用
         Trap::Exception(Exception::UserEnvCall) => {
-            unsafe {
-                riscv::register::sstatus::set_sie();
-            }
+            // unsafe {
+            //     riscv::register::sstatus::set_sie();
+            // }
             syscall_handler()
         }
         // 时钟中断
@@ -52,15 +52,31 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         | Trap::Exception(Exception::StorePageFault)
         | Trap::Exception(Exception::InstructionPageFault)
         | Trap::Exception(Exception::LoadFault)
-        | Trap::Exception(Exception::StoreFault)
-        | Trap::Exception(Exception::InstructionFault) => {
-            debug!(
+        | Trap::Exception(Exception::StoreFault) => {
+            // println!(
+            //     "cause: {:?}, stval: {:x}, sepc: {:x}",
+            //     scause.cause(),
+            //     stval,
+            //     sepc::read()
+            // );
+            handle_pagefault(stval);
+        }
+        Trap::Exception(Exception::InstructionFault) => {
+            #[cfg(feature = "k210")]
+            panic!(
+                "cause: Instruction access fault
+            , stval: {:x}, sepc: {:x}",
+                stval,
+                sepc::read()
+            );
+
+            #[cfg(not(feature = "k210"))]
+            panic!(
                 "cause: {:?}, stval: {:x}, sepc: {:x}",
                 scause.cause(),
                 stval,
                 sepc::read()
             );
-            handle_pagefault(stval);
         }
         // 其他情况，无法处理
         _ => {

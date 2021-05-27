@@ -1,7 +1,7 @@
 use fatfs::{Dir, FileSystem, FsOptions};
 use lazy_static::*;
 
-use crate::drivers::{BufBlockDevice, SDCardWrapper};
+use crate::drivers::BufBlockDevice;
 
 mod file;
 mod vnode;
@@ -10,9 +10,9 @@ pub use file::{file_open, mkdir, FileDescriptor, OpenFlags, StatMode, STDIN, STD
 pub use vnode::Vnode;
 
 #[cfg(feature = "qemu-virt-rv64")]
-type BlockDeviceImpl = VirtIOBlock;
+type BlockDeviceImpl = crate::drivers::VirtIOBlock;
 #[cfg(feature = "k210")]
-type BlockDeviceImpl = SDCardWrapper;
+type BlockDeviceImpl = crate::drivers::SDCardWrapper;
 
 lazy_static! {
     // 文件系统

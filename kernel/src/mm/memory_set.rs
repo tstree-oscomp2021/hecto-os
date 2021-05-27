@@ -67,10 +67,15 @@ impl MemorySet {
             if flags.contains(PTEImpl::WRITABLE) || flags.contains(PTEImpl::COW) {
                 flags.remove(PTEImpl::WRITABLE);
                 flags.insert(PTEImpl::COW);
-                // trace!("{:#x?} {:?}", range.0, flags);
+                // println!("{:#x?} {:?}", range.0, flags);
                 for (&vpn, frame_tracker) in area.data_frames.iter() {
                     new_ms.page_table.map_one(vpn, frame_tracker.ppn, flags);
                     self.page_table.remap_one(vpn, frame_tracker.ppn, flags);
+                }
+                new_ms.areas.insert(range.clone(), area.clone());
+            } else {
+                for (&vpn, frame_tracker) in area.data_frames.iter() {
+                    new_ms.page_table.map_one(vpn, frame_tracker.ppn, flags);
                 }
                 new_ms.areas.insert(range.clone(), area.clone());
             }
@@ -82,8 +87,21 @@ impl MemorySet {
     pub fn handle_pagefault(&mut self, va: VA) {
         let vpn = va.floor();
         let pte = self.page_table.find_pte(vpn).unwrap();
-        debug!("{:?} vpn {:#x} ppn {:#x}", pte, vpn.0, pte.ppn().0);
+        // debug!(
+        //     "va {:#x} {:?} vpn {:#x} ppn {:#x}",
+        //     va.0,
+        //     pte,
+        //     vpn.0,
+        //     pte.ppn().0
+        // );
         if !pte.contains(PTEImpl::COW) {
+            println!(
+                "va {:#x} {:?} vpn {:#x} ppn {:#x}",
+                va.0,
+                pte,
+                vpn.0,
+                pte.ppn().0
+            );
             panic!("handle_pagefault error");
         }
         pte.remove(PTEImpl::COW);
@@ -100,11 +118,11 @@ impl MemorySet {
             pte.set_ppn(new_frame.ppn);
             // trace!("{:?}", pte);
             *frame = new_frame;
+        }
 
-            #[cfg(feature = "k210")]
-            unsafe {
-                asm!("fence", "fence.i", ".word 0x10400073", "fence", "fence.i");
-            }
+        #[cfg(feature = "k210")]
+        unsafe {
+            asm!("fence", "fence.i", ".word 0x10400073", "fence", "fence.i");
         }
     }
 
@@ -133,7 +151,7 @@ impl MemorySet {
             map_type: MapType::Framed,
             map_perm,
         };
-        // debug!("{:#x?} {:?}", va_range, map_perm);
+        // println!("{:#x?} {:?}", va_range, map_perm);
         self.page_table
             .map(VARangeOrd(va_range.clone()), &mut area, data);
         self.areas.insert(VARangeOrd(va_range), area);

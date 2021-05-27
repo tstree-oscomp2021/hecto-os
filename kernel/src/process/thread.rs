@@ -183,6 +183,7 @@ impl Thread {
 
     /// 创建用户进程
     pub fn new_thread(file_name: &str, args: Option<&[usize]>) -> Arc<Thread> {
+        println!("new_thread {}", file_name);
         let tid = TID_ALLOCATOR.lock().alloc();
 
         // 读取 elf 文件内容

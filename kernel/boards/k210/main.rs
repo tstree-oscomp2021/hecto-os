@@ -6,25 +6,14 @@ use k210_hal::prelude::*;
 use k210_pac::Peripherals;
 use k210_soc::{sleep, sysctl};
 
-use crate::{
-    arch::{
-        TaskContextImpl, TrapImpl, __switch, cpu,
-        interface::{PageTable, Trap},
-    },
-    board::{interface::Config, ConfigImpl},
-    processor::*,
-    *,
-};
+use crate::{arch::cpu, PA};
 
-#[no_mangle]
-pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
+pub fn init_board(hart_id: usize, _dtb_pa: PA) {
     unsafe {
-        println!("1");
         // 保存 hart_id
         cpu::set_cpu_id(hart_id);
         // 等待 sbi 输出完
         sleep::usleep(100000);
-        println!("2");
         // 配置系统时钟和串口
         sysctl::pll_set_freq(sysctl::pll::PLL0, 800_000_000).unwrap();
         sysctl::pll_set_freq(sysctl::pll::PLL1, 300_000_000).unwrap();
@@ -32,64 +21,6 @@ pub fn rust_main(hart_id: usize, _dtb_pa: PA) -> ! {
         let clocks = k210_hal::clock::Clocks::new();
         let peripherals = Peripherals::steal();
         peripherals.UARTHS.configure(115_200.bps(), &clocks);
-    }
-
-    if hart_id == ConfigImpl::BOOT_CPU_ID {
-        mm::clear_bss();
-        mm::init();
-        fs::init();
-    }
-
-    mm::KERNEL_PAGE_TABLE.activate();
-
-    // 初始化调度线程
-    let sched_thread = Thread::init_sched_thread(schedule as usize);
-    *get_sched_cx() = sched_thread.task_cx;
-    unsafe {
-        let mut cur_task_cx: *const TaskContextImpl = core::mem::transmute(1usize);
-        __switch(&mut cur_task_cx, *get_sched_cx());
-    }
-
-    panic!("有 bug")
-}
-
-pub fn schedule() {
-    println!("schedule");
-
-    // 添加用户线程
-    SCHEDULER.lock(|s| {
-        s.add_thread(Thread::new_thread("clone", None));
-        s.add_thread(Thread::new_thread("execve", None));
-        s.add_thread(Thread::new_thread("getppid", None));
-        s.add_thread(Thread::new_thread("getpid", None));
-        s.add_thread(Thread::new_thread("dup2", None));
-        s.add_thread(Thread::new_thread("dup", None));
-        s.add_thread(Thread::new_thread("chdir", None));
-        s.add_thread(Thread::new_thread("mkdir_", None));
-        s.add_thread(Thread::new_thread("getcwd", None));
-        s.add_thread(Thread::new_thread("openat", None));
-        s.add_thread(Thread::new_thread("open", None));
-    });
-
-    TrapImpl::init();
-
-    println!("run use thread");
-    loop {
-        while let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
-            let status = next_thread.inner.lock().status;
-            match status {
-                ThreadStatus::Ready => {
-                    debug!("线程 {:?} 运行", next_thread.tid);
-                    next_thread.activate();
-                    // next_thread.inner.lock().status = ThreadStatus::Running;
-                    unsafe {
-                        __switch(get_sched_cx(), next_thread.task_cx);
-                    }
-                }
-                _ => {}
-            }
-        }
-        // TODO 没有可运行的线程了，休眠等待
     }
 }
 
