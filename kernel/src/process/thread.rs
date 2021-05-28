@@ -187,7 +187,12 @@ impl Thread {
         let tid = TID_ALLOCATOR.lock().alloc();
 
         // 读取 elf 文件内容
-        let mut app = ROOT_DIR.open_file(file_name).unwrap();
+        let mut app = FILE_SYSTEM_TABLE[0]
+            .1
+            .as_ref()
+            .unwrap()
+            .open_file(file_name)
+            .unwrap();
         let mut data: Vec<u8> = Vec::new();
         app.read_to_end(&mut data).unwrap();
         let elf = ElfFile::new(data.as_slice()).unwrap();

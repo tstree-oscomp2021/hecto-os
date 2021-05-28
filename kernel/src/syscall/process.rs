@@ -5,7 +5,7 @@ use core_io::Read;
 use xmas_elf::ElfFile;
 
 use super::*;
-use crate::{fs::ROOT_DIR, process::*, trap::interface::TrapFrame, MemorySet};
+use crate::{fs::FILE_SYSTEM_TABLE, process::*, trap::interface::TrapFrame, MemorySet};
 
 /// 线程退出
 /// 如果是进程中的最后一个线程，进程也退出，向父进程发送消息
@@ -14,7 +14,7 @@ pub(super) fn sys_exit(status: i32) -> ! {
         // 1. unmap 当前线程的用户栈
         let mut cur_thread = Arc::from_raw(get_current_thread());
         cur_thread.inner.lock().status = ThreadStatus::Zombie;
-        SCHEDULER.lock(|s| s.remove_thread(&cur_thread));
+        SCHEDULER.critical_section(|s| s.remove_thread(&cur_thread));
         Arc::get_mut_unchecked(&mut cur_thread).dealloc_user_stack();
         // 2. 通知父进程
         let process_inner = cur_thread.process.inner.lock();
@@ -52,7 +52,7 @@ pub(super) fn sys_clone(
             .set_entry_point(unsafe { *stack.offset(0) });
     }
 
-    SCHEDULER.lock(|s| s.add_thread(new_thread.clone()));
+    SCHEDULER.critical_section(|s| s.add_thread(new_thread.clone()));
     // 让新的线程先一步调度
     get_current_thread().inner.lock().status = ThreadStatus::Ready;
     get_current_thread().switch_to(&new_thread);
@@ -127,7 +127,10 @@ pub(super) fn sys_execve(
 ) -> isize {
     let cur_thread = get_current_thread();
     // 读取 elf 文件内容
-    let mut app = ROOT_DIR
+    let mut app = FILE_SYSTEM_TABLE[0]
+        .1
+        .as_ref()
+        .unwrap()
         .open_file(super::fs::normalize_path(super::fs::AT_FDCWD, pathname).as_str())
         .unwrap();
     let mut data: Vec<u8> = Vec::new();

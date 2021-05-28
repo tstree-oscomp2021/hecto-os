@@ -42,7 +42,7 @@ pub(super) fn sys_openat(
 ) -> isize {
     let full_path = normalize_path(dirfd, pathname);
 
-    match file_open(full_path, unsafe {
+    match file::file_open(full_path, unsafe {
         OpenFlags::from_bits_unchecked(flags as usize)
     }) {
         Ok(fd) => {
@@ -55,7 +55,7 @@ pub(super) fn sys_openat(
                 -1
             }
         }
-        Err(errno) => -(errno as isize),
+        Err(_) => -1,
     }
 }
 
@@ -68,6 +68,15 @@ pub(super) fn sys_close(fd: usize) -> isize {
         .get_mut(fd)
         .unwrap() = None;
     0
+}
+
+pub(super) fn sys_unlinkat(dirfd: usize, pathname: *const u8, _flags: i32) -> isize {
+    let full_path = normalize_path(dirfd, pathname);
+    if let Ok(_) = file::file_unlink(full_path) {
+        0
+    } else {
+        -1
+    }
 }
 
 pub(super) fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
@@ -84,7 +93,7 @@ pub(super) fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
 /// 成功执行，返回 0。失败，返回-1。
 pub(super) fn sys_mkdirat(dirfd: usize, pathname: *const u8, mode: usize) -> isize {
     let full_path = normalize_path(dirfd, pathname);
-    mkdir(full_path, unsafe {
+    file::mkdir(full_path, unsafe {
         StatMode::from_bits_unchecked(mode as u32)
     })
 }
@@ -148,6 +157,27 @@ pub(super) fn sys_pipe2(pipefd: *mut i32, _flags: i32) -> isize {
         *pipefd.offset(0) = read_fd;
         *pipefd.offset(1) = write_fd;
     }
+
+    0
+}
+
+/// XXX source 为 sd 卡
+pub(super) fn sys_mount(
+    _source: *const u8,
+    target: *const u8,
+    _filesystemtype: *const u8,
+    _mountflags: usize,
+    _data: *const u8,
+) -> isize {
+    let target_path = normalize_path(AT_FDCWD, target);
+    file::mount(target_path);
+
+    0
+}
+
+pub(super) fn sys_umount2(target: *const u8, _flags: i32) -> isize {
+    let target_path = normalize_path(AT_FDCWD, target);
+    file::umount(target_path);
 
     0
 }

@@ -84,16 +84,16 @@ pub fn schedule() {
         "write",
         "waitpid",
         "wait",
-        // "unlink",
+        "unlink",
         "uname",
-        // "umount",
+        "umount",
         // "times",
         "read",
         "pipe",
         "openat",
         "open",
         // "munmap",
-        // "mount",
+        "mount",
         // "mmap",
         "mkdir_",
         // "gettimeofday",
@@ -122,13 +122,13 @@ pub fn schedule() {
     println!("run user thread");
     loop {
         if let Some(test) = testsuits.pop_front() {
-            SCHEDULER.lock(|s| s.add_thread(test));
+            SCHEDULER.critical_section(|s| s.add_thread(test));
         } else {
             unsafe {
                 shutdown();
             }
         }
-        while let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
+        while let Some(next_thread) = SCHEDULER.critical_section(|v| v.get_next()) {
             let status = next_thread.inner.lock().status;
             match status {
                 ThreadStatus::Ready => {

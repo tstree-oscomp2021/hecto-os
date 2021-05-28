@@ -412,9 +412,11 @@ impl DirEntryData {
     }
 }
 
+/// DirEntry 编辑器，用来修改 DirEntry
 #[derive(Clone, Debug)]
 pub(crate) struct DirEntryEditor {
     data: DirFileEntryData,
+    /// DirEntry 在硬盘设备上的位置（就当作 Inode number 好了）
     pos: u64,
     dirty: bool,
 }
@@ -474,6 +476,7 @@ impl DirEntryEditor {
         Ok(())
     }
 
+    /// 将 DirEntry 数据写入硬盘
     fn write<T: ReadWriteSeek>(&self, fs: &FileSystem<T>) -> io::Result<()> {
         let mut disk = fs.disk.borrow_mut();
         disk.seek(io::SeekFrom::Start(self.pos))?;

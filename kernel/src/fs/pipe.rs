@@ -8,9 +8,7 @@ use alloc::{
 };
 
 use super::OpenFlags;
-use crate::{
-    condvar::Condvar, get_current_thread, io::*, spinlock::SpinLock, FileDescriptor, Vnode,
-};
+use crate::{get_current_thread, io::*, spinlock::SpinLock, sync::Condvar, FileDescriptor, Vnode};
 
 pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
     let condvar = Arc::new(Condvar::default());
@@ -21,6 +19,7 @@ pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
             flags: OpenFlags::RDONLY,
             pos: 0,
             vnode: Arc::new(Vnode {
+                fs: &(None, None),
                 full_path: String::new(),
                 inode: Box::new(PipeRead {
                     data: data.clone(),
@@ -32,6 +31,7 @@ pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
             flags: OpenFlags::WRONLY,
             pos: 0,
             vnode: Arc::new(Vnode {
+                fs: &(None, None),
                 full_path: String::new(),
                 inode: Box::new(PipeWrite {
                     data: Arc::downgrade(&data),
@@ -58,7 +58,7 @@ impl Read for PipeRead {
             return Ok(0);
         }
         loop {
-            let count = self.data.lock(|data| {
+            let count = self.data.critical_section(|data| {
                 let mut i = 0;
                 while i < buf.len() {
                     if let Some(b) = data.pop_front() {
@@ -74,6 +74,7 @@ impl Read for PipeRead {
                 i
             });
 
+            // TODO 如果 flags 为 O_NONBLOCK，则返回 Err(EAGAIN)
             if count > 0 {
                 return Ok(count);
             } else if Arc::weak_count(&self.data) == 0 {
@@ -109,7 +110,7 @@ impl Write for PipeWrite {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         // 如果存在读端
         if let Some(data) = self.data.upgrade() {
-            data.lock(|data| {
+            data.critical_section(|data| {
                 for &byte in buf {
                     data.push_back(byte);
                 }

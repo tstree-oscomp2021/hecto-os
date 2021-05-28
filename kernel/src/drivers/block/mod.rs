@@ -171,23 +171,23 @@ impl<Block: BlockDevice> BufBlockDevice<Block> {
 impl<Block: BlockDevice> Read for BufBlockDevice<Block> {
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.0.lock(|v| v.read(buf))
+        self.0.critical_section(|v| v.read(buf))
     }
 }
 impl<Block: BlockDevice> Write for BufBlockDevice<Block> {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.0.lock(|v| v.write(buf))
+        self.0.critical_section(|v| v.write(buf))
     }
 
     #[inline]
     fn flush(&mut self) -> Result<()> {
-        self.0.lock(|v| v.flush())
+        self.0.critical_section(|v| v.flush())
     }
 }
 impl<Block: BlockDevice> Seek for BufBlockDevice<Block> {
     #[inline]
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        self.0.lock(|v| v.seek(pos))
+        self.0.critical_section(|v| v.seek(pos))
     }
 }

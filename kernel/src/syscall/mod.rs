@@ -36,10 +36,16 @@ pub fn syscall_handler() {
         SyscallImpl::read => sys_read(args[0], args[1] as *mut u8, args[2]),
         SyscallImpl::write => sys_write(args[0], args[1] as *const u8, args[2]),
         SyscallImpl::linkat => unimplemented!(),
-        SyscallImpl::unlinkat => unimplemented!(),
+        SyscallImpl::unlinkat => sys_unlinkat(args[0], args[1] as *const u8, args[2] as i32),
         SyscallImpl::mkdirat => sys_mkdirat(args[0], args[1] as *const u8, args[2]),
-        SyscallImpl::umount2 => unimplemented!(),
-        SyscallImpl::mount => unimplemented!(),
+        SyscallImpl::umount2 => sys_umount2(args[0] as *const u8, args[1] as i32),
+        SyscallImpl::mount => sys_mount(
+            args[0] as *const u8,
+            args[1] as *const u8,
+            args[2] as *const u8,
+            args[3],
+            args[4] as *const u8,
+        ),
         SyscallImpl::fstat => unimplemented!(),
         // 进程管理相关 6 个
         SyscallImpl::clone => sys_clone(
@@ -63,13 +69,14 @@ pub fn syscall_handler() {
         SyscallImpl::exit => sys_exit(args[0] as i32),
         SyscallImpl::getppid => sys_getppid(),
         SyscallImpl::getpid => sys_getpid(),
+        SyscallImpl::sched_yield => sys_sched_yield(),
         // 内存管理相关 8 个
         SyscallImpl::brk => unimplemented!(),
         SyscallImpl::munmap => unimplemented!(),
         SyscallImpl::mmap => unimplemented!(),
+        // 其他
         SyscallImpl::times => unimplemented!(),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
-        SyscallImpl::sched_yield => sys_sched_yield(),
         SyscallImpl::gettimeofday => unimplemented!(),
         SyscallImpl::nanosleep => unimplemented!(),
         // 特定于架构的

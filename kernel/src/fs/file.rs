@@ -3,16 +3,16 @@
 use alloc::{boxed::Box, string::String, sync::Arc};
 
 use bitflags::*;
-use fatfs::ReadWriteSeek;
 use lazy_static::lazy_static;
 
 use super::{
     vnode::{CONSOLE_VNODE, VNODE_HASHSET},
-    Vnode, ROOT_DIR,
+    FileSystem, Vnode, *,
 };
 use crate::{
+    arch::{interface::Console, ConsoleImpl},
+    drivers::BufBlockDevice,
     io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
-    syscall::Result,
 };
 
 bitflags! {
@@ -108,9 +108,10 @@ pub struct FileDescriptor {
 }
 
 impl Drop for FileDescriptor {
+    /// XXX 待测试
     fn drop(&mut self) {
         if alloc::sync::Arc::<Vnode>::strong_count(&self.vnode) == 2 {
-            VNODE_HASHSET.lock(|hs| hs.remove(&self.vnode));
+            VNODE_HASHSET.critical_section(|hs| hs.remove(&self.vnode));
         }
     }
 }
@@ -159,34 +160,107 @@ impl Seek for FileDescriptor {
     }
 }
 
-pub fn file_open(full_path: String, flags: OpenFlags) -> Result<Arc<FileDescriptor>> {
-    debug!("open {}", full_path);
-    let mut inode: Box<dyn ReadWriteSeek + Send + Sync> = if flags.contains(OpenFlags::CREAT) {
-        Box::new(ROOT_DIR.create_file(full_path.as_str()).unwrap())
-    } else if flags.contains(OpenFlags::DIRECTORY) {
-        Box::new(ROOT_DIR.open_dir(full_path.as_str()).unwrap())
+pub fn file_open(full_path: String, flags: OpenFlags) -> core_io::Result<Arc<FileDescriptor>> {
+    let mut vnode = Arc::new(Vnode {
+        fs: &(None, None),
+        full_path,
+        inode: Box::new(ConsoleImpl::CONSOLE_INSTANCE),
+    });
+
+    let mut vnode_set = VNODE_HASHSET.lock();
+    if let Some(v) = vnode_set.get(&vnode) {
+        vnode = v.clone();
     } else {
-        Box::new(ROOT_DIR.open_file(full_path.as_str()).unwrap())
-    };
+        let fs_dir = filesystem_lookup(&vnode.full_path);
+        assert!(fs_dir.0.is_some());
+        unsafe { Arc::get_mut_unchecked(&mut vnode) }.fs = fs_dir;
+
+        let path = &vnode.full_path[fs_dir.0.as_ref().unwrap().mount_point.len()..];
+
+        debug!("open {}", &vnode.full_path);
+        unsafe { Arc::get_mut_unchecked(&mut vnode) }.inode = if flags.contains(OpenFlags::CREAT) {
+            Box::new(fs_dir.1.as_ref().unwrap().create_file(path)?)
+        } else if flags.contains(OpenFlags::DIRECTORY) {
+            Box::new(fs_dir.1.as_ref().unwrap().open_dir(path)?)
+        } else {
+            Box::new(fs_dir.1.as_ref().unwrap().open_file(path)?)
+        };
+
+        vnode_set.insert(vnode.clone());
+    }
 
     let pos = if flags.contains(OpenFlags::APPEND) {
-        inode.seek(SeekFrom::End(0)).unwrap()
+        unsafe { Arc::get_mut_unchecked(&mut vnode) }
+            .inode
+            .seek(SeekFrom::End(0))
+            .unwrap()
     } else {
         0
     };
 
-    Ok(Arc::new(FileDescriptor {
-        flags,
-        pos,
-        vnode: Arc::new(Vnode { full_path, inode }),
-    }))
+    Ok(Arc::new(FileDescriptor { flags, pos, vnode }))
+}
+
+/// 删除文件
+pub fn file_unlink(full_path: String) -> core_io::Result<()> {
+    let fs_dir = filesystem_lookup(&full_path);
+    // TODO 返回 Error: No such file
+    assert!(fs_dir.0.is_some());
+    fs_dir.1.as_ref().unwrap().remove(full_path.as_str())?;
+
+    Ok(())
 }
 
 pub fn mkdir(full_path: String, _mode: StatMode) -> isize {
     debug!("mkdir {}", full_path);
-    if ROOT_DIR.create_dir(full_path.as_str()).is_ok() {
+    let fs_dir = filesystem_lookup(&full_path);
+    // TODO 返回 Error: No such file
+    assert!(fs_dir.0.is_some());
+    if fs_dir
+        .1
+        .as_ref()
+        .unwrap()
+        .create_dir(full_path.as_str())
+        .is_ok()
+    {
         0
     } else {
         -1
     }
+}
+
+pub fn mount(full_path: String) {
+    let fs_dir = filesystem_lookup(&full_path);
+    // TODO 返回 Error: No such file
+    assert!(fs_dir.0.is_some());
+    // TODO 如果不是 Dir 返回 -1 而不是 panic
+    fs_dir
+        .1
+        .as_ref()
+        .unwrap()
+        .open_dir(&full_path[fs_dir.0.as_ref().unwrap().mount_point.len()..])
+        .unwrap();
+
+    let fs = FileSystem {
+        mount_point: full_path,
+        fs: fs_dir.0.as_ref().unwrap().fs.clone(),
+    };
+
+    regeister_file_system(fs);
+}
+
+pub fn umount(full_path: String) {
+    let fs_dir = filesystem_lookup(&full_path);
+    // TODO 返回 Error: No such mount point
+    assert!(fs_dir.0.is_some());
+
+    // println!("umount {}", fs_dir.0.as_ref().unwrap().mount_point);
+
+    #[allow(mutable_transmutes)]
+    let fs_dir: &mut (
+        Option<FileSystem>,
+        Option<Dir<BufBlockDevice<BlockDeviceImpl>>>,
+    ) = unsafe { transmute(fs_dir) };
+
+    *fs_dir = (None, None);
 }

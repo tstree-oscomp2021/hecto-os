@@ -298,19 +298,23 @@ impl BiosParameterBlock {
         }
     }
 
+    /// 保留扇区数
     pub(crate) fn reserved_sectors(&self) -> u32 {
         self.reserved_sectors as u32
     }
 
+    /// 向上取整得到根目录区的 dir_entry 所占扇区数量
     pub(crate) fn root_dir_sectors(&self) -> u32 {
         let root_dir_bytes = self.root_entries as u32 * DIR_ENTRY_SIZE as u32;
         (root_dir_bytes + self.bytes_per_sector as u32 - 1) / self.bytes_per_sector as u32
     }
 
+    /// 所有的 FAT 表占用的扇区数
     pub(crate) fn sectors_per_all_fats(&self) -> u32 {
         self.fats as u32 * self.sectors_per_fat()
     }
 
+    /// 第一个数据扇区号
     pub(crate) fn first_data_sector(&self) -> u32 {
         let root_dir_sectors = self.root_dir_sectors();
         let fat_sectors = self.sectors_per_all_fats();
@@ -324,6 +328,7 @@ impl BiosParameterBlock {
         data_sectors / self.sectors_per_cluster as u32
     }
 
+    /// 扇区数量 -> 字节数
     pub(crate) fn bytes_from_sectors(&self, sectors: u32) -> u64 {
         // Note: total number of sectors is a 32 bit number so offsets have to be 64 bit
         (sectors as u64) * self.bytes_per_sector as u64

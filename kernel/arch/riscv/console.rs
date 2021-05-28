@@ -16,7 +16,7 @@ impl core::fmt::Write for ConsoleImpl {
     /// `u8` 来打印字符。 因此，如果字符串中存在非 ASCII 字符，需要在 utf-8
     /// 编码下，对于每一个 `u8` 调用一次 [`console_putchar`]
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        CONSOLE_LOCK.lock(|_| s.bytes().for_each(|c| console_putchar(c as usize)));
+        CONSOLE_LOCK.critical_section(|_| s.bytes().for_each(|c| console_putchar(c as usize)));
         Ok(())
     }
 }

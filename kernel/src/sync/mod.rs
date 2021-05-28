@@ -1,2 +1,4 @@
-pub mod condvar;
+pub use condvar::Condvar;
+
+mod condvar;
 pub mod spinlock;
