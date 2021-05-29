@@ -42,7 +42,9 @@ impl<'a, T: ReadWriteSeek + 'a> Inode for File<'a, T> {
         if let Some(ref entry) = self.entry {
             entry.clone().into()
         } else {
-            Default::default()
+            let mut ret: crate::LinuxDirent64 = Default::default();
+            ret.d_name[0] = b'/';
+            ret
         }
     }
 }
