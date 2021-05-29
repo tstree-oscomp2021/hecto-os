@@ -4,6 +4,7 @@ mod misc;
 mod mm;
 mod process;
 use alloc::sync::Arc;
+use core::time::Duration;
 
 use fatfs::{LinuxDirent64, Stat};
 use fs::*;
@@ -84,10 +85,14 @@ pub fn syscall_handler() {
             args[5],
         ),
         // 其他
-        SyscallImpl::times => unimplemented!(),
+        SyscallImpl::times => sys_times(args[0] as *mut Times),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
-        SyscallImpl::gettimeofday => unimplemented!(),
-        SyscallImpl::nanosleep => unimplemented!(),
+        SyscallImpl::gettimeofday => {
+            sys_gettimeofday(args[0] as *mut TimeVal, args[1] as *mut TimeZone)
+        }
+        SyscallImpl::nanosleep => {
+            sys_nanosleep(args[0] as *const Duration, args[1] as *mut Duration)
+        }
         // 特定于架构的
         _ => syscall_id.arch_specific_syscall_handler(),
     } as usize;

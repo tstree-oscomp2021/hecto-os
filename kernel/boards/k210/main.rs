@@ -15,9 +15,9 @@ pub fn init_board(hart_id: usize, _dtb_pa: PA) {
         // 等待 sbi 输出完
         sleep::usleep(100000);
         // 配置系统时钟和串口
-        sysctl::pll_set_freq(sysctl::pll::PLL0, 800_000_000).unwrap();
-        sysctl::pll_set_freq(sysctl::pll::PLL1, 300_000_000).unwrap();
-        sysctl::pll_set_freq(sysctl::pll::PLL2, 45_158_400).unwrap();
+        sysctl::pll_set_freq(sysctl::pll::PLL0, 806_000_000).unwrap();
+        sysctl::pll_set_freq(sysctl::pll::PLL1, 398_666_666).unwrap();
+        sysctl::pll_set_freq(sysctl::pll::PLL2, 45_066_666).unwrap();
         let clocks = k210_hal::clock::Clocks::new();
         let peripherals = Peripherals::steal();
         peripherals.UARTHS.configure(115_200.bps(), &clocks);

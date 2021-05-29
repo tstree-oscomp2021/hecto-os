@@ -13,7 +13,9 @@
     get_mut_unchecked,
     const_generics,
     drain_filter,
-    map_first_last
+    map_first_last,
+    const_btree_new,
+    const_fn_trait_bound
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
@@ -28,6 +30,7 @@ pub mod mm;
 pub mod process;
 pub mod sync;
 pub mod syscall;
+pub mod timer;
 pub mod trap;
 
 pub mod arch;
@@ -88,7 +91,7 @@ pub fn schedule() {
         "unlink",
         "uname",
         "umount",
-        // "times",
+        "times",
         "read",
         "pipe",
         "openat",
@@ -97,7 +100,7 @@ pub fn schedule() {
         "mount",
         "mmap",
         "mkdir_",
-        // "gettimeofday",
+        "gettimeofday",
         "getppid",
         "getpid",
         "getdents",

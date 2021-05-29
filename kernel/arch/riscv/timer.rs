@@ -1,15 +1,22 @@
 //! 预约和处理时钟中断
 
+use core::time::Duration;
+
 use riscv::register::{sie, sstatus, time};
 
 use super::sbi::set_timer;
-use crate::board::{interface::Config, ConfigImpl};
+use crate::{
+    board::{interface::Config, ConfigImpl},
+    timer::TIMER,
+};
 
 /// 触发时钟中断计数
 pub static mut TICKS: [usize; 2] = [0; 2];
 
 const TICKS_PER_SEC: usize = 100;
-const MSEC_PER_SEC: usize = 1000;
+const MSEC_PER_SEC: usize = 1_000;
+const USEC_PER_SEC: usize = 1_000_000;
+const NSEC_PER_SEC: usize = 1_000_000_000;
 /// 时钟中断的间隔，单位是 CPU 指令
 /// 中断间隔 = 每秒时钟周期数 / 每秒 tick 数 = 每次 tick 经过的时钟周期数
 const INTERVAL: usize = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC;
@@ -33,7 +40,7 @@ pub fn init() {
 ///
 /// 设置下一次时钟中断，同时计数 +1
 pub fn tick() {
-    // println!(".");
+    print!("-");
     set_next_timeout();
     let hart_id = super::cpu::get_cpu_id();
     unsafe {
@@ -42,6 +49,9 @@ pub fn tick() {
             debug!("{} 秒", TICKS[hart_id] / TICKS_PER_SEC);
         }
     }
+
+    TIMER.critical_section(|t| t.expire(get_duration()));
+    print!("|");
 }
 
 /// 设置下一次时钟中断
@@ -53,8 +63,27 @@ fn set_next_timeout() {
 }
 
 #[allow(unused)]
-#[inline]
 pub fn get_time_ms() -> usize {
     // 指令周期数 / 每毫秒时钟周期数
     time::read() / (ConfigImpl::CLOCK_FREQ / MSEC_PER_SEC)
+}
+
+/// 返回 (sec, usec)
+#[allow(unused)]
+pub fn get_time() -> (u64, u64) {
+    let mut usec = time::read() / (ConfigImpl::CLOCK_FREQ / USEC_PER_SEC);
+
+    (
+        usec as u64 / USEC_PER_SEC as u64,
+        usec as u64 % USEC_PER_SEC as u64,
+    )
+}
+
+pub fn get_duration() -> Duration {
+    let nsec = time::read() * (NSEC_PER_SEC / 1000) / (ConfigImpl::CLOCK_FREQ / 1000);
+
+    Duration::new(
+        nsec as u64 / NSEC_PER_SEC as u64,
+        (nsec as u64 % NSEC_PER_SEC as u64) as u32,
+    )
 }

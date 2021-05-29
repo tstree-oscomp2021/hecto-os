@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+pub use super::timer::{get_duration, get_time};
+
 /// 保存 hart_id
 pub unsafe fn set_cpu_id(hart_id: usize) {
     llvm_asm!("mv tp, $0" : : "r"(hart_id));
