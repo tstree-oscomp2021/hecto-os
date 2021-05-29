@@ -129,10 +129,10 @@ impl MemorySet {
     }
 
     /// 移除一段 area
-    pub fn remove_area(&mut self, va_end: VA) {
+    pub fn remove_area(&mut self, va: VA) {
         for vpn in self
             .areas
-            .remove_entry(&VARangeOrd(va_end..va_end))
+            .remove_entry(&VARangeOrd(va..va))
             .unwrap()
             .0
             .vpn_range()

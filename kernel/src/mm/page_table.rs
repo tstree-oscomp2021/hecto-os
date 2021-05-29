@@ -106,7 +106,7 @@ pub trait PageTable {
                             area.data_frames.insert(vpn, dst_frame);
                         }
                     }
-                    // 内核栈/用户栈
+                    // 内核栈 / 用户栈 / mmap
                     _ => {
                         for vpn in va_range.vpn_range() {
                             let dst_frame = frame_alloc().unwrap();

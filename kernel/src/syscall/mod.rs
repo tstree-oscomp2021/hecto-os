@@ -74,8 +74,15 @@ pub fn syscall_handler() {
         SyscallImpl::sched_yield => sys_sched_yield(),
         // 内存管理相关 8 个
         SyscallImpl::brk => sys_brk(args[0].into()),
-        SyscallImpl::munmap => unimplemented!(),
-        SyscallImpl::mmap => unimplemented!(),
+        SyscallImpl::munmap => sys_munmap(args[0].into(), args[1]),
+        SyscallImpl::mmap => sys_mmap(
+            args[0].into(),
+            args[1],
+            unsafe { mm::PROT::from_bits_unchecked(args[2]) },
+            args[3],
+            args[4],
+            args[5],
+        ),
         // 其他
         SyscallImpl::times => unimplemented!(),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
