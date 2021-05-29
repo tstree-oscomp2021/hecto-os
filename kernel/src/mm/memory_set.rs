@@ -203,4 +203,24 @@ impl MemorySet {
 
         va_end - ConfigImpl::PAGE_SIZE
     }
+
+    /// addr = 0 时，返回 data 段末尾地址。否则成功返回 0，失败 -1
+    pub fn brk(&mut self, addr: VA) -> isize {
+        let mut area_iter = self.areas.keys();
+        let data_end = area_iter.next().unwrap().0.end;
+        if addr.0 == 0 {
+            return data_end.0 as isize;
+        }
+        if addr.0 <= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) {
+            // XXX 待改进
+            if let Some((mut va_range, area)) = self.areas.pop_first() {
+                va_range.0.end = addr;
+                self.areas.insert(va_range, area);
+
+                return 0;
+            }
+        }
+
+        -1
+    }
 }

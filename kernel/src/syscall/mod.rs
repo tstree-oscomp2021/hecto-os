@@ -1,14 +1,15 @@
 //! 各种系统调用
 mod fs;
 mod misc;
+mod mm;
 mod process;
-
 use alloc::sync::Arc;
 
 use fatfs::{LinuxDirent64, Stat};
 use fs::*;
 use interface::Syscall;
 use misc::*;
+use mm::*;
 use process::*;
 
 use crate::{arch::SyscallImpl, process::*};
@@ -72,7 +73,7 @@ pub fn syscall_handler() {
         SyscallImpl::getpid => sys_getpid(),
         SyscallImpl::sched_yield => sys_sched_yield(),
         // 内存管理相关 8 个
-        SyscallImpl::brk => unimplemented!(),
+        SyscallImpl::brk => sys_brk(args[0].into()),
         SyscallImpl::munmap => unimplemented!(),
         SyscallImpl::mmap => unimplemented!(),
         // 其他

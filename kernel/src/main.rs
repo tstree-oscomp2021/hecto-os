@@ -12,7 +12,8 @@
     step_trait,
     get_mut_unchecked,
     const_generics,
-    drain_filter
+    drain_filter,
+    map_first_last
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
@@ -110,7 +111,7 @@ pub fn schedule() {
         "close",
         "clone",
         "chdir",
-        // "brk",
+        "brk",
         // "sleep"
     ];
 
