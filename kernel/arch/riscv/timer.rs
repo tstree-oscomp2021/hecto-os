@@ -40,7 +40,6 @@ pub fn init() {
 ///
 /// 设置下一次时钟中断，同时计数 +1
 pub fn tick() {
-    print!("-");
     set_next_timeout();
     let hart_id = super::cpu::get_cpu_id();
     unsafe {
@@ -49,9 +48,6 @@ pub fn tick() {
             debug!("{} 秒", TICKS[hart_id] / TICKS_PER_SEC);
         }
     }
-
-    TIMER.critical_section(|t| t.expire(get_duration()));
-    print!("|");
 }
 
 /// 设置下一次时钟中断

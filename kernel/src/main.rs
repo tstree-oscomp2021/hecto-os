@@ -49,12 +49,13 @@ pub use sync::*;
 
 use crate::{
     arch::{
-        interface::{PageTable, Trap},
         TaskContextImpl, TrapImpl, __switch,
-        cpu::shutdown,
+        cpu::{self, shutdown},
+        interface::{PageTable, Trap},
     },
     board::{init_board, interface::Config, ConfigImpl},
     processor::get_sched_cx,
+    timer::TIMER,
 };
 
 #[no_mangle]
@@ -115,7 +116,7 @@ pub fn schedule() {
         "clone",
         "chdir",
         "brk",
-        // "sleep"
+        "sleep"
     ];
 
     let mut testsuits = alloc::collections::VecDeque::new();
@@ -145,6 +146,8 @@ pub fn schedule() {
                 }
                 _ => {}
             }
+
+            TIMER.critical_section(|t| t.expire(cpu::get_duration()));
         }
     }
 }
