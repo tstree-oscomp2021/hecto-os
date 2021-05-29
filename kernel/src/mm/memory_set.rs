@@ -37,6 +37,8 @@ pub struct MemorySet {
 }
 
 impl MemorySet {
+    const BRK_MAX: usize = 0x1000;
+
     /// 创建一个映射了内核区域的 MemorySet
     pub fn new_kernel() -> Self {
         let mut page_table = PageTableImpl::new_kernel();
@@ -193,7 +195,8 @@ impl MemorySet {
         let mut va_end = VA(round_up!(
             area_iter.next().unwrap().0.end.0,
             ConfigImpl::PAGE_SIZE
-        )) + size;
+        )) + Self::BRK_MAX
+            + size;
         for area in area_iter {
             if va_end <= area.0.start {
                 break;
@@ -211,16 +214,22 @@ impl MemorySet {
         if addr.0 == 0 {
             return data_end.0 as isize;
         }
-        if addr.0 <= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) {
-            // XXX 待改进
-            if let Some((mut va_range, area)) = self.areas.pop_first() {
-                va_range.0.end = addr;
-                self.areas.insert(va_range, area);
-
-                return 0;
-            }
+        // 如果 addr 超过了允许的范围
+        if addr.0 >= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) + Self::BRK_MAX {
+            return -1;
         }
 
-        -1
+        let (mut va_range, mut area) = self.areas.pop_first().unwrap();
+        // 如果需要分配新的页面
+        if addr.0 >= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) {
+            let vpn = addr.floor();
+            let dst_frame = frame_alloc().unwrap();
+            self.page_table.map_one(vpn, dst_frame.ppn, area.map_perm);
+            area.data_frames.insert(vpn, dst_frame);
+        }
+        va_range.0.end = addr;
+        self.areas.insert(va_range, area);
+
+        0
     }
 }
