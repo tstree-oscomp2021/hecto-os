@@ -2,6 +2,7 @@ use alloc::string::{String, ToString};
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 use cstr_core::*;
+use fatfs::{LinuxDirent64, Stat, StatMode};
 
 use super::*;
 use crate::{
@@ -182,6 +183,32 @@ pub(super) fn sys_umount2(target: *const u8, _flags: i32) -> isize {
     0
 }
 
+pub(super) fn sys_getdents64(fd: usize, dirp: *mut LinuxDirent64, _count: usize) -> isize {
+    let process_inner = get_current_thread().process.inner.lock();
+    if let Some(fd) = process_inner.fd_table.get(fd).unwrap() {
+        unsafe {
+            *dirp = fd.vnode.inode.get_dents64();
+        }
+
+        core::mem::size_of::<LinuxDirent64>() as isize
+    } else {
+        -1
+    }
+}
+
+pub(super) fn sys_fstat(fd: usize, statbuf: *mut Stat) -> isize {
+    let process_inner = get_current_thread().process.inner.lock();
+    if let Some(fd) = process_inner.fd_table.get(fd).unwrap() {
+        unsafe {
+            *statbuf = fd.vnode.inode.get_fstat();
+        }
+
+        0
+    } else {
+        -1
+    }
+}
+
 /// TODO 去掉中间重复的 `/` 和 `.`
 pub fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     let mut path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };
@@ -189,8 +216,9 @@ pub fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
     if path.starts_with('/') {
         return path.to_string();
     }
-    // 去掉开头的 `./`
+    // 去掉开头的 `./` 和末尾的 `.`
     path = path.trim_start_matches("./");
+    path = path.trim_end_matches(".");
 
     let process_inner = get_current_thread().process.inner.lock();
 

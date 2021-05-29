@@ -6,9 +6,9 @@ use crate::{
 };
 
 pub mod interface {
-    use fatfs::ReadWriteSeek;
+    use fatfs::Inode;
 
-    pub trait Console: core::fmt::Write + ReadWriteSeek + Send + Sync {
+    pub trait Console: core::fmt::Write + Inode + Send + Sync {
         const CONSOLE_INSTANCE: Self;
     }
 }

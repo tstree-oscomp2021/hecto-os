@@ -5,6 +5,7 @@ mod process;
 
 use alloc::sync::Arc;
 
+use fatfs::{LinuxDirent64, Stat};
 use fs::*;
 use interface::Syscall;
 use misc::*;
@@ -32,7 +33,7 @@ pub fn syscall_handler() {
         SyscallImpl::chdir => sys_chdir(args[0] as *const u8),
         SyscallImpl::openat => sys_openat(args[0], args[1] as *const u8, args[2] as isize, args[3]),
         SyscallImpl::close => sys_close(args[0]),
-        SyscallImpl::getdents64 => unimplemented!(),
+        SyscallImpl::getdents64 => sys_getdents64(args[0], args[1] as *mut LinuxDirent64, args[2]),
         SyscallImpl::read => sys_read(args[0], args[1] as *mut u8, args[2]),
         SyscallImpl::write => sys_write(args[0], args[1] as *const u8, args[2]),
         SyscallImpl::linkat => unimplemented!(),
@@ -46,7 +47,7 @@ pub fn syscall_handler() {
             args[3],
             args[4] as *const u8,
         ),
-        SyscallImpl::fstat => unimplemented!(),
+        SyscallImpl::fstat => sys_fstat(args[0], args[1] as *mut Stat),
         // 进程管理相关 6 个
         SyscallImpl::clone => sys_clone(
             args[0] as u64,

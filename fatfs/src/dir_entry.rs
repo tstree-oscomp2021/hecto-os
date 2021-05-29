@@ -421,6 +421,44 @@ pub(crate) struct DirEntryEditor {
     dirty: bool,
 }
 
+use super::{LinuxDirent64, Stat, StatMode};
+impl Into<LinuxDirent64> for DirEntryEditor {
+    fn into(self) -> LinuxDirent64 {
+        LinuxDirent64 {
+            d_ino: self.pos,
+            d_off: self.pos as i64 + core::mem::size_of::<DirEntryData>() as i64,
+            d_reclen: core::mem::size_of::<DirEntryData>() as u16,
+            d_type: self.data.attrs.bits,
+            d_name: self.data.name,
+        }
+    }
+}
+impl Into<Stat> for DirEntryEditor {
+    fn into(self) -> Stat {
+        Stat {
+            st_dev: 0,
+            st_ino: self.pos,
+            st_mode: StatMode::empty(),
+            st_nlink: 1,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            __pad: 0,
+            st_size: self.data.size as isize,
+            st_blksize: 512,
+            __pad2: 0,
+            st_blocks: 1,
+            st_atime_sec: self.data.access_date as isize,
+            st_atime_nsec: 0,
+            st_mtime_sec: self.data.modify_time as isize,
+            st_mtime_nsec: 0,
+            st_ctime_sec: self.data.create_time_1 as isize,
+            st_ctime_nsec: 0,
+            __unused: [0; 2],
+        }
+    }
+}
+
 impl DirEntryEditor {
     fn new(data: DirFileEntryData, pos: u64) -> Self {
         DirEntryEditor { data, pos, dirty: false }

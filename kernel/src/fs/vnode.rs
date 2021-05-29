@@ -1,8 +1,7 @@
 use alloc::{boxed::Box, string::String, sync::Arc};
 use core::hash::Hash;
 
-use core_io::SeekFrom;
-use fatfs::ReadWriteSeek;
+use fatfs::Inode;
 use hashbrown::HashSet;
 use lazy_static::lazy_static;
 
@@ -30,7 +29,7 @@ pub struct Vnode {
     // 完整路径
     pub full_path: String,
     // inode，对应一个可以 ReadWriteSeek 的文件对象
-    pub(super) inode: Box<dyn ReadWriteSeek + Send + Sync>,
+    pub inode: Box<dyn Inode + Send + Sync>,
 }
 
 impl Eq for Vnode {}

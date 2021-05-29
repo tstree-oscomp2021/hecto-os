@@ -3,6 +3,7 @@
 use alloc::{boxed::Box, string::String, sync::Arc};
 
 use bitflags::*;
+use fatfs::StatMode;
 use lazy_static::lazy_static;
 
 use super::{
@@ -36,42 +37,6 @@ bitflags! {
         const CLOEXEC   = 1 << 19;
         ///
         const DIRECTORY = 1 << 21;
-    }
-}
-
-bitflags! {
-    /// 文件类型和访问权限
-    /// `man 7 inode`
-    pub struct StatMode: u32 {
-        const S_IFMT    = 0o017_0000;   /* bit mask for the file type bit field */
-
-        const S_IFSOCK  = 0o014_0000;   /* socket */
-        const S_IFLNK   = 0o012_0000;   /* symbolic link */
-        const S_IFREG   = 0o010_0000;   /* regular file */
-        const S_IFBLK   = 0o006_0000;   /* block device */
-        const S_IFDIR   = 0o004_0000;   /* directory */
-        const S_IFCHR   = 0o002_0000;   /* character device */
-        const S_IFIFO   = 0o001_0000;   /* FIFO */
-
-        const S_ISUID   = 0o000_4000;   /* set-user-ID bit (see execve(2)) */
-        const S_ISGID   = 0o000_2000;   /* set-group-ID bit (see below) */
-        const S_ISVTX   = 0o000_1000;   /* sticky bit (see below) */
-
-        const S_IRWXU   = 0o000_0700;   /* owner has read, write, and execute permission */
-        const S_IRUSR   = 0o000_0400;   /* owner has read permission */
-        const S_IWUSR   = 0o000_0200;   /* owner has write permission */
-        const S_IXUSR   = 0o000_0100;   /* owner has execute permission */
-
-        const S_IRWXG   = 0o000_0070;   /* group has read, write, and execute permission */
-        const S_IRGRP   = 0o000_0040;   /* group has read permission */
-        const S_IWGRP   = 0o000_0020;   /* group has write permission */
-        const S_IXGRP   = 0o000_0010;   /* group has execute permission */
-
-        const S_IRWXO   = 0o000_0007;   /* others (not in group) have read, write, and execute permission */
-        const S_IROTH   = 0o000_0004;   /* others have read permission */
-        const S_IWOTH   = 0o000_0002;   /* others have write permission */
-        const S_IXOTH   = 0o000_0001;   /* others have execute permission */
-
     }
 }
 
@@ -161,6 +126,7 @@ impl Seek for FileDescriptor {
 }
 
 pub fn file_open(full_path: String, flags: OpenFlags) -> core_io::Result<Arc<FileDescriptor>> {
+    debug!("open {}", full_path);
     let mut vnode = Arc::new(Vnode {
         fs: &(None, None),
         full_path,
@@ -177,7 +143,6 @@ pub fn file_open(full_path: String, flags: OpenFlags) -> core_io::Result<Arc<Fil
 
         let path = &vnode.full_path[fs_dir.0.as_ref().unwrap().mount_point.len()..];
 
-        debug!("open {}", &vnode.full_path);
         unsafe { Arc::get_mut_unchecked(&mut vnode) }.inode = if flags.contains(OpenFlags::CREAT) {
             Box::new(fs_dir.1.as_ref().unwrap().create_file(path)?)
         } else if flags.contains(OpenFlags::DIRECTORY) {

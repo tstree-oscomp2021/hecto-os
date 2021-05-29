@@ -8,6 +8,8 @@ use dir_entry::DirEntryEditor;
 use fs::{FileSystem, ReadWriteSeek};
 use time::{Date, DateTime};
 
+use crate::Inode;
+
 const MAX_FILE_SIZE: u32 = core::u32::MAX;
 
 /// A FAT filesystem file object used for reading and writing data.
@@ -21,9 +23,28 @@ pub struct File<'a, T: ReadWriteSeek + 'a> {
     // current position in this file
     offset: u32,
     // file dir entry editor - None for root dir
-    entry: Option<DirEntryEditor>,
+    pub(crate) entry: Option<DirEntryEditor>,
     // file-system reference
     fs: &'a FileSystem<T>,
+}
+
+impl<'a, T: ReadWriteSeek + 'a> Inode for File<'a, T> {
+    fn get_fstat(&self) -> crate::Stat {
+        // 根目录没有 direntry
+        if let Some(ref entry) = self.entry {
+            entry.clone().into()
+        } else {
+            Default::default()
+        }
+    }
+
+    fn get_dents64(&self) -> crate::LinuxDirent64 {
+        if let Some(ref entry) = self.entry {
+            entry.clone().into()
+        } else {
+            Default::default()
+        }
+    }
 }
 
 impl<'a, T: ReadWriteSeek> File<'a, T> {

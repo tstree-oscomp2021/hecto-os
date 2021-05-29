@@ -7,6 +7,8 @@ use alloc::{
     sync::{Arc, Weak},
 };
 
+use fatfs::Inode;
+
 use super::OpenFlags;
 use crate::{get_current_thread, io::*, spinlock::SpinLock, sync::Condvar, FileDescriptor, Vnode};
 
@@ -130,5 +132,24 @@ impl Write for PipeWrite {
 impl Seek for PipeWrite {
     fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
         Ok(0)
+    }
+}
+
+impl Inode for PipeRead {
+    fn get_fstat(&self) -> fatfs::Stat {
+        todo!()
+    }
+
+    fn get_dents64(&self) -> fatfs::LinuxDirent64 {
+        todo!()
+    }
+}
+impl Inode for PipeWrite {
+    fn get_fstat(&self) -> fatfs::Stat {
+        todo!()
+    }
+
+    fn get_dents64(&self) -> fatfs::LinuxDirent64 {
+        todo!()
     }
 }

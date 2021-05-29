@@ -8,9 +8,9 @@ use crate::drivers::BufBlockDevice;
 
 pub mod file;
 pub mod pipe;
-mod vnode;
+pub mod vnode;
 
-pub use file::{FileDescriptor, OpenFlags, StatMode, STDIN, STDOUT};
+pub use file::{FileDescriptor, OpenFlags, STDIN, STDOUT};
 pub use pipe::{PipeRead, PipeWrite};
 pub use vnode::Vnode;
 
@@ -94,6 +94,12 @@ pub fn regeister_file_system(fs: FileSystem) {
 
             (*fs_dir).0 = Some(fs);
             (*fs_dir).1 = Some(fs_dir.0.as_ref().unwrap().fs.root_dir());
+
+            vnode::VNODE_HASHSET.lock().insert(Arc::new(Vnode {
+                fs: fs_dir,
+                full_path: fs_dir.0.as_ref().unwrap().mount_point.clone(),
+                inode: alloc::boxed::Box::new(fs_dir.0.as_ref().unwrap().fs.root_dir()),
+            }));
 
             return;
         }

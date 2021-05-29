@@ -1,3 +1,5 @@
+use fatfs::Inode;
+
 use super::sbi::console_putchar;
 use crate::{
     arch::interface::Console,
@@ -44,4 +46,14 @@ impl Seek for ConsoleImpl {
 
 impl Console for ConsoleImpl {
     const CONSOLE_INSTANCE: Self = ConsoleImpl;
+}
+
+impl Inode for ConsoleImpl {
+    fn get_fstat(&self) -> fatfs::Stat {
+        todo!()
+    }
+
+    fn get_dents64(&self) -> fatfs::LinuxDirent64 {
+        todo!()
+    }
 }

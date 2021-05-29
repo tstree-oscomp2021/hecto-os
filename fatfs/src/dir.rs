@@ -13,6 +13,8 @@ use dir_entry::{LFN_ENTRY_LAST_FLAG, LFN_PART_LEN};
 use file::File;
 use fs::{DiskSlice, FileSystem, FsIoAdapter, ReadWriteSeek};
 
+use crate::Inode;
+
 #[cfg(feature = "alloc")]
 type LfnUtf16 = Vec<u16>;
 #[cfg(not(feature = "alloc"))]
@@ -124,6 +126,24 @@ impl<'a, T: ReadWriteSeek> Write for Dir<'a, T> {
 impl<'a, T: ReadWriteSeek> Seek for Dir<'a, T> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.stream.seek(pos)
+    }
+}
+
+impl<'a, T: ReadWriteSeek + 'a> Inode for Dir<'a, T> {
+    fn get_fstat(&self) -> crate::Stat {
+        if let DirRawStream::File(ref file) = self.stream {
+            file.get_fstat()
+        } else {
+            panic!("")
+        }
+    }
+
+    fn get_dents64(&self) -> crate::LinuxDirent64 {
+        if let DirRawStream::File(ref file) = self.stream {
+            file.get_dents64()
+        } else {
+            panic!("")
+        }
     }
 }
 
