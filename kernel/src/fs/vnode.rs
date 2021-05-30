@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use super::*;
 use crate::{
     arch::{interface::Console, ConsoleImpl},
-    spinlock::SpinLock,
+    sync::SpinLock,
 };
 
 lazy_static! {

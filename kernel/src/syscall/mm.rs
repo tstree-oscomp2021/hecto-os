@@ -29,7 +29,7 @@ pub(super) fn sys_brk(addr: VA) -> isize {
         .process
         .inner
         .lock()
-        .memory_set
+        .address_space
         .brk(addr)
 }
 
@@ -49,9 +49,9 @@ pub(super) fn sys_mmap(
     map_perm.set(PTEImpl::EXECUTABLE, prot.contains(PROT::EXECUTABLE));
 
     let mut process_inner = get_current_thread().process.inner.lock();
-    let va_end = process_inner.memory_set.alloc_user_area(length);
+    let va_end = process_inner.address_space.alloc_user_area(length);
     process_inner
-        .memory_set
+        .address_space
         .insert_framed_area(va_end - length..va_end, map_perm, None);
 
     if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
@@ -72,7 +72,7 @@ pub(super) fn sys_munmap(addr: VA, _length: usize) -> isize {
         .process
         .inner
         .lock()
-        .memory_set
+        .address_space
         .remove_area(addr);
     0
 }

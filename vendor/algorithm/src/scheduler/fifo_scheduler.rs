@@ -18,6 +18,12 @@ impl<ThreadType: Clone + Eq> Default for FifoScheduler<ThreadType> {
 }
 
 impl<ThreadType: Clone + Eq> Scheduler<ThreadType> for FifoScheduler<ThreadType> {
+    const DEFAULT: Self = {
+        Self {
+            pool: LinkedList::new(),
+        }
+    };
+
     type Priority = ();
     fn add_thread(&mut self, thread: ThreadType) {
         // 加入链表尾部

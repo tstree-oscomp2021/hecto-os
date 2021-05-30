@@ -48,6 +48,6 @@ pub fn handle_pagefault(addr: usize) {
         .process
         .inner
         .lock()
-        .memory_set
+        .address_space
         .handle_pagefault(VA(addr));
 }

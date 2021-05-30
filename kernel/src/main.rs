@@ -45,7 +45,6 @@ pub use algorithm::*;
 pub use fs::*;
 pub use mm::*;
 pub use process::*;
-pub use sync::*;
 
 use crate::{
     arch::{
@@ -54,13 +53,15 @@ use crate::{
         interface::{PageTable, Trap},
     },
     board::{init_board, interface::Config, ConfigImpl},
-    processor::get_sched_cx,
+    schedule::get_sched_cx,
+    syscall::{RELEASE, SYSNAME},
 };
 
 #[no_mangle]
 pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
     if hart_id == ConfigImpl::BOOT_CPU_ID {
         init_board(hart_id, dtb_pa);
+        println!("\n{} {}", SYSNAME, RELEASE);
         mm::clear_bss();
         mm::init();
         fs::init();
@@ -76,7 +77,7 @@ pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
         __switch(&mut cur_task_cx, *get_sched_cx());
     }
 
-    panic!("wu nei gui lai dian bug")
+    panic!("bug")
 }
 
 pub fn schedule() {

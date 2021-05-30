@@ -134,7 +134,7 @@ use crate::{board::*, KERNEL_PROCESS};
 lazy_static! {
     /// 请通过内核进程而非此变量来映射内核栈，因为映射涉及到页框的创建和保存
     pub static ref KERNEL_PAGE_TABLE: &'static PageTableImpl =
-        unsafe { &*(&KERNEL_PROCESS.inner.lock().memory_set.page_table as *const PageTableImpl) };
+        unsafe { &*(&KERNEL_PROCESS.inner.lock().address_space.page_table as *const PageTableImpl) };
 }
 
 // TODO 应放在 board 里

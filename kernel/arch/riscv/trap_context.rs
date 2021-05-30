@@ -5,19 +5,11 @@ use riscv::register::sstatus::{self, Sstatus, SPP::*};
 use crate::arch::interface::TrapFrame;
 
 /// 发生中断时，保存的寄存器
-///
-/// 包括所有通用寄存器，以及：
-/// - `sstatus`：各种状态位
-/// - `sepc`：产生中断的地址
-///
-/// ### `#[repr(C)]` 属性
-/// 要求 struct 按照 C 语言的规则进行内存分布，否则 Rust
-/// 可能按照其他规则进行内存排布
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct TrapFrameImpl {
     /// 通用寄存器 x0~x31
-    /// TODO 事实上，x4(tp) 并没有被保存，而是用来表示当前cpuid
+    /// 事实上 x4/tp 并没有被保存，而是用来表示当前cpuid
     pub x: [usize; 32],
     /// 保存诸多状态位的特权态寄存器
     pub sstatus: Sstatus,
@@ -26,10 +18,6 @@ pub struct TrapFrameImpl {
 }
 
 /// 创建一个用 0 初始化的 TrapFrameImpl
-///
-/// 这里使用 [`core::mem::zeroed()`] 来强行用全 0 初始化。
-/// 因为在一些类型中，0 数值可能不合法（例如引用），所以 [`zeroed()`] 是 unsafe
-/// 的
 impl Default for TrapFrameImpl {
     fn default() -> Self {
         unsafe { zeroed() }
@@ -108,7 +96,7 @@ impl TrapFrame for TrapFrameImpl {
             self.sstatus.set_spp(Supervisor);
         }
         // 这样设置 SPIE 位，使得替换 sstatus 后关闭中断，
-        // 而在 sret 到用户线程时开启中断。详见 SPIE 和 SIE 的定义
+        // 而在 sret 到用户线程时开启中断。
         self.sstatus.set_spie(true);
     }
 }

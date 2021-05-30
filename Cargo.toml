@@ -6,6 +6,7 @@ members = ["kernel"]
 resolver = "2"
 
 [profile.dev]
+debug-assertions = true
 lto = false
 opt-level = "z"
 panic = "abort"

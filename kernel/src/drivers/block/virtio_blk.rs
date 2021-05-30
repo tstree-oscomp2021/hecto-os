@@ -9,7 +9,7 @@ use crate::{
     board::{interface::Config, ConfigImpl},
     frame_alloc,
     mm::{KERNEL_PAGE_TABLE, VA},
-    spinlock::SpinLock,
+    sync::SpinLock,
     Frame, FrameTracker, PA, PPN,
 };
 

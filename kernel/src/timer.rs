@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, collections::BTreeMap};
 use core::time::Duration;
 
-use crate::spinlock::SpinLock;
+use crate::sync::SpinLock;
 
 pub static TIMER: SpinLock<Timer> = SpinLock::new(Timer::new());
 

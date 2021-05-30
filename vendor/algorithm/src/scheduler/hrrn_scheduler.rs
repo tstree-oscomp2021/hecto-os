@@ -33,6 +33,13 @@ impl<ThreadType: Clone + Eq> Default for HrrnScheduler<ThreadType> {
 }
 
 impl<ThreadType: Clone + Eq> Scheduler<ThreadType> for HrrnScheduler<ThreadType> {
+    const DEFAULT: Self = {
+        Self {
+            current_time: 0,
+            pool: LinkedList::new(),
+        }
+    };
+
     type Priority = ();
 
     fn add_thread(&mut self, thread: ThreadType) {

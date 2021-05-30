@@ -31,15 +31,17 @@ pub struct MapArea {
 }
 
 /// 每个 proccess 的地址空间，类似于 Linux 中的 mm_struct
-pub struct MemorySet {
+pub struct AddressSpace {
+    /// 页表
     pub page_table: PageTableImpl,
     pub areas: BTreeMap<VARangeOrd, MapArea>,
 }
 
-impl MemorySet {
+impl AddressSpace {
+    /// sys_brk 可以增加的内存上限
     const BRK_MAX: usize = 0x1000;
 
-    /// 创建一个映射了内核区域的 MemorySet
+    /// 创建一个映射了内核区域的 AddressSpace
     pub fn new_kernel() -> Self {
         let mut page_table = PageTableImpl::new_kernel();
         for pair in ConfigImpl::MMIO {
@@ -60,9 +62,9 @@ impl MemorySet {
         }
     }
 
-    /// fork 一份 CoW 的 MemorySet
+    /// fork 一份 CoW 的 AddressSpace
     pub fn fork(&mut self) -> Self {
-        let mut new_ms = Self::new_kernel();
+        let mut new_as = Self::new_kernel();
 
         for (range, area) in self.areas.iter() {
             let mut flags = area.map_perm;
@@ -71,19 +73,19 @@ impl MemorySet {
                 flags.insert(PTEImpl::COW);
                 // println!("{:#x?} {:?}", range.0, flags);
                 for (&vpn, frame_tracker) in area.data_frames.iter() {
-                    new_ms.page_table.map_one(vpn, frame_tracker.ppn, flags);
+                    new_as.page_table.map_one(vpn, frame_tracker.ppn, flags);
                     self.page_table.remap_one(vpn, frame_tracker.ppn, flags);
                 }
-                new_ms.areas.insert(range.clone(), area.clone());
+                new_as.areas.insert(range.clone(), area.clone());
             } else {
                 for (&vpn, frame_tracker) in area.data_frames.iter() {
-                    new_ms.page_table.map_one(vpn, frame_tracker.ppn, flags);
+                    new_as.page_table.map_one(vpn, frame_tracker.ppn, flags);
                 }
-                new_ms.areas.insert(range.clone(), area.clone());
+                new_as.areas.insert(range.clone(), area.clone());
             }
         }
 
-        new_ms
+        new_as
     }
 
     pub fn handle_pagefault(&mut self, va: VA) {
@@ -161,8 +163,8 @@ impl MemorySet {
 
     /// 通过 elf 文件创建内存映射（不包括栈）
     pub fn from_elf(file: &ElfFile) -> Self {
-        // 建立带有内核映射的 MemorySet
-        let mut memory_set = Self::new_kernel();
+        // 建立带有内核映射的 AddressSpace
+        let mut address_space = Self::new_kernel();
         // 映射所有 Segment
         for ph in file.program_iter() {
             if ph.get_type() != Ok(Type::Load) {
@@ -176,7 +178,7 @@ impl MemorySet {
             map_perm.set(PTEImpl::READABLE, flags.is_read());
             map_perm.set(PTEImpl::WRITABLE, flags.is_write());
             map_perm.set(PTEImpl::EXECUTABLE, flags.is_execute());
-            memory_set.insert_framed_area(
+            address_space.insert_framed_area(
                 // TODO va_range 取整
                 start_addr.into()..(start_addr + ph.mem_size() as usize).into(),
                 map_perm,
@@ -184,7 +186,7 @@ impl MemorySet {
             );
         }
 
-        memory_set
+        address_space
     }
 
     // 在低地址区域划分一块可用的区域，返回 va_end

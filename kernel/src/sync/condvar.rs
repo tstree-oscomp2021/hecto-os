@@ -3,7 +3,7 @@ use alloc::{
     sync::{Arc, Weak},
 };
 
-use crate::{get_current_thread, spinlock::SpinLock, Thread, ThreadStatus};
+use crate::{get_current_thread, sync::SpinLock, Thread, ThreadStatus};
 
 /// A Condition Variable
 ///

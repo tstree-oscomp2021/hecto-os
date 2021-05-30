@@ -14,6 +14,8 @@ mod hrrn_scheduler;
 /// - 当一个线程结束时，需要调用 [`Scheduler::remove_thread()`]
 ///   来将其移除。这个方法必须在 [`Scheduler::get_next()`] 之前调用。
 pub trait Scheduler<ThreadType: Clone + Eq>: Default {
+    const DEFAULT: Self;
+
     /// 优先级的类型
     type Priority;
     /// 向线程池中添加一个线程
@@ -29,4 +31,4 @@ pub trait Scheduler<ThreadType: Clone + Eq>: Default {
 pub use fifo_scheduler::FifoScheduler;
 pub use hrrn_scheduler::HrrnScheduler;
 
-pub type SchedulerImpl<T> = HrrnScheduler<T>;
+pub type SchedulerImpl<T> = FifoScheduler<T>;

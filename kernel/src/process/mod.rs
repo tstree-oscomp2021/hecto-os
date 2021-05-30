@@ -1,9 +1,9 @@
 pub mod process;
-pub mod processor;
+pub mod schedule;
 pub mod thread;
 
 pub use process::{Pid, Process, KERNEL_PROCESS};
-pub use processor::SCHEDULER;
+pub use schedule::SCHEDULER;
 pub use thread::{
     get_cur_kernel_stack_top, get_current_thread, get_current_trapframe, get_kernel_stack_range,
     Thread, ThreadStatus,

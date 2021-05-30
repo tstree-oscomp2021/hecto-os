@@ -1,9 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use core::{
-    hash::{Hash, Hasher},
-    mem::size_of,
-    sync::atomic::Ordering,
-};
+use core::{mem::size_of, sync::atomic::Ordering};
 
 use core_io::Read;
 use xmas_elf::ElfFile;
@@ -13,13 +9,13 @@ use crate::{
     arch::{
         PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch,
         cpu::{self, get_cpu_id},
-        interface::{PageTable, Register, TaskContext, Trap, TrapFrame},
+        interface::{PageTable, Register, TaskContext, TrapFrame},
     },
     board::{interface::Config, sbss_with_stack, ConfigImpl},
     fs::*,
     mm::*,
-    processor::get_sched_cx,
-    spinlock::SpinLock,
+    schedule::get_sched_cx,
+    sync::SpinLock,
 };
 
 pub struct TidAllocator {
@@ -101,18 +97,22 @@ pub fn get_kernel_stack_range(tid: usize) -> VARange {
     VA(kernel_stack_top - ConfigImpl::KERNEL_STACK_SIZE)..VA(kernel_stack_top)
 }
 
+/// 线程指针大小
 const THREAD_PTR_OFFSET: usize = size_of::<usize>();
+/// TrapFrame 在内核栈的偏移量
 const TRAP_FRAME_OFFSET: usize = THREAD_PTR_OFFSET + size_of::<TrapFrameImpl>();
 
-#[inline]
+/// 获取当前线程的内核栈顶
 pub fn get_cur_kernel_stack_top() -> VA {
     // XXX 可能的问题：sp 刚好在栈底，得到 guard page 里的内容，发生 page fault
     VA(round_up!(RegisterImpl::sp(), ConfigImpl::KERNEL_STACK_SIZE))
 }
+/// 获取当前线程的可变引用
 pub fn get_current_thread() -> &'static mut Thread {
     let thread_ptr = *(get_cur_kernel_stack_top() - THREAD_PTR_OFFSET).get_mut::<usize>();
     unsafe { &mut *(thread_ptr as *mut Thread) }
 }
+/// 获取当前线程的 TrapFrame 的可变引用
 pub fn get_current_trapframe() -> &'static mut TrapFrameImpl {
     (get_cur_kernel_stack_top() - TRAP_FRAME_OFFSET).get_mut()
 }
@@ -125,11 +125,12 @@ impl Thread {
         let kernel_stack_top = get_kernel_stack_range(tid).end;
         let vpn = kernel_stack_top.floor() - 1; // 内核栈顶所在虚拟页面
         let ppn: PPN = PPN::from(VA(sbss_with_stack as usize).floor()) + tid; // 物理页面
-        KERNEL_PROCESS.inner.lock().memory_set.page_table.map_one(
-            vpn,
-            ppn,
-            PTEImpl::READABLE | PTEImpl::WRITABLE,
-        );
+        KERNEL_PROCESS
+            .inner
+            .lock()
+            .address_space
+            .page_table
+            .map_one(vpn, ppn, PTEImpl::READABLE | PTEImpl::WRITABLE);
 
         // 2. 设置 TaskContext
         let task_cx = (kernel_stack_top - THREAD_PTR_OFFSET - size_of::<TaskContextImpl>())
@@ -158,11 +159,15 @@ impl Thread {
 
         // 分配内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
-        KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
-            kernel_stack_range.clone(),
-            PTEImpl::READABLE | PTEImpl::WRITABLE,
-            None,
-        );
+        KERNEL_PROCESS
+            .inner
+            .lock()
+            .address_space
+            .insert_framed_area(
+                kernel_stack_range.clone(),
+                PTEImpl::READABLE | PTEImpl::WRITABLE,
+                None,
+            );
         // TrapFrame
         let task_cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TaskContextImpl>();
         task_cx.set_ra(entry);
@@ -205,11 +210,15 @@ impl Thread {
         // 分配内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
         // println!("内核栈 {:#x?}", kernel_stack_range);
-        KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
-            kernel_stack_range.clone(),
-            PTEImpl::READABLE | PTEImpl::WRITABLE,
-            None,
-        );
+        KERNEL_PROCESS
+            .inner
+            .lock()
+            .address_space
+            .insert_framed_area(
+                kernel_stack_range.clone(),
+                PTEImpl::READABLE | PTEImpl::WRITABLE,
+                None,
+            );
         // TrapFrame
         let cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
         cx.init(
@@ -253,11 +262,15 @@ impl Thread {
             .push(Arc::downgrade(&process));
         // 内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
-        KERNEL_PROCESS.inner.lock().memory_set.insert_framed_area(
-            kernel_stack_range.clone(),
-            PTEImpl::READABLE | PTEImpl::WRITABLE,
-            None,
-        );
+        KERNEL_PROCESS
+            .inner
+            .lock()
+            .address_space
+            .insert_framed_area(
+                kernel_stack_range.clone(),
+                PTEImpl::READABLE | PTEImpl::WRITABLE,
+                None,
+            );
         // TrapFrame
         let trap_frame = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
         *trap_frame = *get_current_trapframe();
@@ -329,7 +342,12 @@ impl Thread {
 
     /// 激活线程页表
     pub fn activate(&self) {
-        self.process.inner.lock().memory_set.page_table.activate();
+        self.process
+            .inner
+            .lock()
+            .address_space
+            .page_table
+            .activate();
     }
 
     /// 获取线程的 TrapFrame
@@ -358,12 +376,6 @@ impl PartialEq for Thread {
         self.tid.0 == other.tid.0
     }
 }
-/// 通过线程 ID 来哈希
-impl Hash for Thread {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.tid.0);
-    }
-}
 
 /// 回收内核栈
 impl Drop for Thread {
@@ -373,7 +385,7 @@ impl Drop for Thread {
         KERNEL_PROCESS
             .inner
             .lock()
-            .memory_set
+            .address_space
             .remove_area(get_kernel_stack_range(self.tid.0).end);
     }
 }

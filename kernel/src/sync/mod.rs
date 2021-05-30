@@ -1,4 +1,5 @@
 pub use condvar::Condvar;
+pub use spinlock::SpinLock;
 
 mod condvar;
-pub mod spinlock;
+mod spinlock;

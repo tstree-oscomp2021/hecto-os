@@ -2,22 +2,20 @@
 
 #[macro_use]
 pub mod address;
+pub mod address_space;
 pub mod frame_allocator;
 pub mod heap;
-pub mod memory_set;
 pub mod page_table;
 
 pub use address::{VARange, VARangeOrd, VPNRange, PA, PPN, VA, VPN};
+pub use address_space::{AddressSpace, MapArea, MapType};
 pub use frame_allocator::{frame_alloc, Frame, FrameTracker};
-pub use memory_set::{MapArea, MapType, MemorySet};
 pub use page_table::KERNEL_PAGE_TABLE;
 
 /// 初始化内存相关的子模块
 pub fn init() {
     heap::init();
     frame_allocator::init_frame_allocator();
-
-    println!("mod memory initialized");
 }
 
 /// bss 段清零
@@ -35,6 +33,7 @@ pub fn clear_bss() {
         cur = (ConfigImpl::MEMORY_END as *mut usize).offset(-1);
         *cur = 0x1234_5678;
         assert_eq!(*cur, 0x1234_5678);
+        println!("bss segment cleared");
     }
 }
 

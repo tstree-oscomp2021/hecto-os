@@ -65,7 +65,9 @@ impl PTE for PTEImpl {
 
 use alloc::{vec, vec::Vec};
 
-/// TODO field 都 private
+/// 用来映射一个地址空间的页表
+///
+/// TODO field 都改成 private
 pub struct PageTableImpl {
     /// 根页表的页框
     pub root: FrameTracker,
@@ -74,6 +76,7 @@ pub struct PageTableImpl {
 }
 
 impl PageTable for PageTableImpl {
+    /// 创建一个映射了高 256 G的内核区域地址的页表
     fn new_kernel() -> Self {
         let frame = frame_alloc().unwrap();
         // 前 256 个 PTE 清零
@@ -88,7 +91,7 @@ impl PageTable for PageTableImpl {
         }
     }
 
-    /// 查找 vpn 虚拟页号对应的 pte
+    /// 查找 vpn 虚拟页号对应的 pte，若不存在会创建页表
     fn find_pte_create(&mut self, vpn: VPN) -> Option<&mut PTEImpl> {
         let idxs = vpn.indexes();
         let mut pte: &mut PTEImpl = &mut VPN::from(self.root.ppn).get_array()[idxs[0]];

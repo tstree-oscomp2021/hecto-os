@@ -14,12 +14,12 @@ macro_rules! str2c {
     }};
 }
 
-static SYSNAME: &'static str = str2c!("Hecto-OS");
-static NODENAME: &'static str = str2c!("None");
-static RELEASE: &'static str = str2c!(env!("CARGO_PKG_VERSION"));
-static VERSION: &'static str = env!("CARGO_PKG_VERSION_MAJOR");
-static MACHINE: &'static str = str2c!("None");
-static DOMAINNAME: &'static str = str2c!("None");
+pub static SYSNAME: &'static str = str2c!("Hecto-OS");
+pub static NODENAME: &'static str = str2c!("None");
+pub static RELEASE: &'static str = str2c!(env!("CARGO_PKG_VERSION"));
+pub static VERSION: &'static str = str2c!(env!("CARGO_PKG_VERSION_MAJOR"));
+pub static MACHINE: &'static str = str2c!("None");
+pub static DOMAINNAME: &'static str = str2c!("None");
 
 /// UNIX Timesharing System Name
 #[derive(Copy, Clone)]

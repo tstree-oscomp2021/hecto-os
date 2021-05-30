@@ -6,6 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+algorithm = { path = '../vendor/algorithm' }
 bitflags = { path = '../vendor/bitflags' }
 buddy_system_allocator = { path = '../vendor/buddy_system_allocator' }
 cstr_core = { path = '../vendor/cstr_core' }
@@ -16,7 +17,6 @@ spin = { path = '../vendor/spin' } # 自旋锁
 virtio-drivers = { path = '../vendor/virtio-drivers' }
 xmas-elf = { path = '../vendor/xmas-elf' } # 解析 elf
 
-algorithm = { path = 'src/algorithm' }
 core_io = { path = "../core_io", features = ["collections"] }
 fatfs = { path = "../fatfs" } # fat 32 文件系统
 k210-hal = { path = "../k210-hal" }

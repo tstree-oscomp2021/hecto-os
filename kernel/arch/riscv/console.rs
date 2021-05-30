@@ -4,7 +4,7 @@ use super::sbi::console_putchar;
 use crate::{
     arch::interface::Console,
     io::{Read, Seek, Write},
-    spinlock::SpinLock,
+    sync::SpinLock,
 };
 
 pub struct ConsoleImpl;

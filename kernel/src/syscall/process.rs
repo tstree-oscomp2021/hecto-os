@@ -5,7 +5,7 @@ use core_io::Read;
 use xmas_elf::ElfFile;
 
 use super::*;
-use crate::{fs::FILE_SYSTEM_TABLE, process::*, trap::interface::TrapFrame, MemorySet};
+use crate::{fs::FILE_SYSTEM_TABLE, process::*, trap::interface::TrapFrame, AddressSpace};
 
 /// 线程退出
 /// 如果是进程中的最后一个线程，进程也退出，向父进程发送消息
@@ -145,7 +145,7 @@ pub(super) fn sys_execve(
     let mut data: Vec<u8> = Vec::new();
     app.read_to_end(&mut data).unwrap();
     let elf = ElfFile::new(data.as_slice()).unwrap();
-    cur_thread.process.inner.lock().memory_set = MemorySet::from_elf(&elf);
+    cur_thread.process.inner.lock().address_space = AddressSpace::from_elf(&elf);
     cur_thread.user_stack_top = cur_thread.process.alloc_user_stack();
     // 设置 TrapFrame
     let trap_frame = get_current_trapframe();

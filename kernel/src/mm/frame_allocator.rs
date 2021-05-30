@@ -6,7 +6,7 @@ use lazy_static::*;
 use super::{PPN, VA, VPN};
 use crate::{
     board::{interface::Config, ConfigImpl},
-    spinlock::SpinLock,
+    sync::SpinLock,
 };
 
 pub struct Frame {

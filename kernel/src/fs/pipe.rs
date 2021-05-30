@@ -10,7 +10,12 @@ use alloc::{
 use fatfs::Inode;
 
 use super::OpenFlags;
-use crate::{get_current_thread, io::*, spinlock::SpinLock, sync::Condvar, FileDescriptor, Vnode};
+use crate::{
+    get_current_thread,
+    io::*,
+    sync::{Condvar, SpinLock},
+    FileDescriptor, Vnode,
+};
 
 pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
     let condvar = Arc::new(Condvar::default());

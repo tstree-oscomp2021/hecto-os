@@ -1,8 +1,11 @@
 //! 各种系统调用
+pub use misc::{RELEASE, SYSNAME};
+
 mod fs;
 mod misc;
 mod mm;
 mod process;
+
 use alloc::sync::Arc;
 use core::{sync::atomic::Ordering, time::Duration};
 

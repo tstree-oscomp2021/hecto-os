@@ -9,7 +9,7 @@ use core::mem::transmute;
 use crate::{
     io,
     io::{Read, Result, Seek, SeekFrom, Write},
-    spinlock::SpinLock,
+    sync::SpinLock,
 };
 
 const BLOCK_SZ: usize = 512;
@@ -56,7 +56,6 @@ impl<Block: BlockDevice> BufBlkDeviceInner<Block> {
 }
 
 /// TODO 按需 fill_buf（初始化时可以不 fill_buf，读满后也可以不 fill_buf）
-/// TODO 写一些单元测试
 impl<Block: BlockDevice> Read for BufBlkDeviceInner<Block> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // 将 self.buf 中剩余的读进去
