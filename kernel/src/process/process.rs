@@ -8,7 +8,6 @@ use alloc::{
 };
 
 use lazy_static::lazy_static;
-use spin::Mutex;
 use xmas_elf::ElfFile;
 
 use crate::{
@@ -17,6 +16,7 @@ use crate::{
     fs::{FileDescriptor, STDIN, STDOUT},
     get_current_thread,
     mm::*,
+    spinlock::SpinLock,
 };
 
 lazy_static! {
@@ -26,7 +26,7 @@ lazy_static! {
         println!("init kernel process");
         Arc::new(Process {
             pid: 0,
-            inner: Mutex::new(ProcessInner {
+            inner: SpinLock::new(ProcessInner {
                 cwd: String::from("/"),
                 memory_set: MemorySet {
                     page_table: crate::mm::page_table::kernel_page_table(),
@@ -46,9 +46,9 @@ pub type Pid = usize;
 
 pub struct Process {
     pub pid: Pid,
-    /// 可变的部分。如果要更高的细粒度，去掉 ProcessInner 的 Mutex，给里面的
+    /// 可变的部分。如果要更高的细粒度，去掉 ProcessInner 的 SpinLock，给里面的
     /// memory_set 等等分别加上
-    pub inner: Mutex<ProcessInner>,
+    pub inner: SpinLock<ProcessInner>,
 }
 
 pub struct ProcessInner {
@@ -74,7 +74,7 @@ impl Process {
     pub fn from_elf(file: &ElfFile, pid: usize) -> Arc<Self> {
         Arc::new(Self {
             pid,
-            inner: Mutex::new(ProcessInner {
+            inner: SpinLock::new(ProcessInner {
                 cwd: String::from("/"),
                 memory_set: MemorySet::from_elf(file),
                 fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
@@ -91,7 +91,7 @@ impl Process {
         let mut process_inner = self.inner.lock();
         Arc::new(Self {
             pid,
-            inner: Mutex::new(ProcessInner {
+            inner: SpinLock::new(ProcessInner {
                 cwd: process_inner.cwd.clone(),
                 memory_set: process_inner.memory_set.fork(),
                 fd_table: process_inner.fd_table.clone(),

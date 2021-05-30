@@ -159,7 +159,7 @@ impl<Block: BlockDevice> Seek for BufBlkDeviceInner<Block> {
     }
 }
 
-/// The [`BufBlockDevice<Block>`] struct adds buffering to any BlockDevice.
+/// [`BufBlockDevice<Block>`] 是一个带锁的 [`BufBlkDeviceInner<Block>`]
 pub struct BufBlockDevice<Block: BlockDevice>(SpinLock<BufBlkDeviceInner<Block>>);
 
 impl<Block: BlockDevice> BufBlockDevice<Block> {

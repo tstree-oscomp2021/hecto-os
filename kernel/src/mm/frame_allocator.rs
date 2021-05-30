@@ -2,10 +2,12 @@ use alloc::{sync::Arc, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
 
 use lazy_static::*;
-use spin::Mutex;
 
 use super::{PPN, VA, VPN};
-use crate::board::{interface::Config, ConfigImpl};
+use crate::{
+    board::{interface::Config, ConfigImpl},
+    spinlock::SpinLock,
+};
 
 pub struct Frame {
     // TODO 去掉 pub
@@ -96,8 +98,8 @@ impl FrameAllocator for StackFrameAllocator {
 type FrameAllocatorImpl = StackFrameAllocator;
 
 lazy_static! {
-    pub static ref FRAME_ALLOCATOR: Mutex<FrameAllocatorImpl> =
-        Mutex::new(FrameAllocatorImpl::new());
+    pub static ref FRAME_ALLOCATOR: SpinLock<FrameAllocatorImpl> =
+        SpinLock::new(FrameAllocatorImpl::new());
 }
 
 pub fn init_frame_allocator() {

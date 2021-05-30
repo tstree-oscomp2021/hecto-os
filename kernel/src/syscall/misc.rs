@@ -85,7 +85,7 @@ pub(super) fn sys_nanosleep(req: *const Duration, _rem: *mut Duration) -> isize 
     let cur_thread = get_current_thread();
 
     TIMER.critical_section(|t| unsafe {
-        t.add(
+        t.register(
             *req + cpu::get_duration(),
             Box::new(move || {
                 cur_thread.inner.lock().status = ThreadStatus::Ready;

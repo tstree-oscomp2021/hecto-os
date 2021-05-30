@@ -26,7 +26,7 @@ impl crate::arch::interface::Trap for TrapImpl {
             // sie::set_ssoft();
         }
 
-        // timer::init();
+        timer::init();
 
         println!("mod trap initialized");
     }
@@ -36,15 +36,22 @@ impl crate::arch::interface::Trap for TrapImpl {
 #[no_mangle]
 pub fn handle_trap(scause: Scause, stval: usize) {
     match scause.cause() {
-        // 来自用户态的系统调用
-        Trap::Exception(Exception::UserEnvCall) => {
-            unsafe {
-                riscv::register::sstatus::set_sie();
-            }
-            syscall_handler()
-        }
         // 时钟中断
-        Trap::Interrupt(Interrupt::SupervisorTimer) => supervisor_timer(),
+        Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            timer::tick();
+            return;
+        }
+        _ => {}
+    }
+
+    unsafe {
+        // 开启 SIE（不是 sie 寄存器），全局中断使能，允许内核态被中断打断
+        riscv::register::sstatus::set_sie();
+    }
+
+    match scause.cause() {
+        // 来自用户态的系统调用
+        Trap::Exception(Exception::UserEnvCall) => syscall_handler(),
         // 外部中断
         Trap::Interrupt(Interrupt::SupervisorExternal) => unimplemented!(),
         // 缺页异常
@@ -89,9 +96,4 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         }
     }
     // println!("handle_interrupt end");
-}
-
-/// 处理时钟中断
-fn supervisor_timer() {
-    timer::tick();
 }

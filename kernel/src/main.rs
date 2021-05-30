@@ -50,12 +50,11 @@ pub use sync::*;
 use crate::{
     arch::{
         TaskContextImpl, TrapImpl, __switch,
-        cpu::{self, shutdown},
+        cpu::shutdown,
         interface::{PageTable, Trap},
     },
     board::{init_board, interface::Config, ConfigImpl},
     processor::get_sched_cx,
-    timer::TIMER,
 };
 
 #[no_mangle]
@@ -146,51 +145,6 @@ pub fn schedule() {
                 }
                 _ => {}
             }
-
-            TIMER.critical_section(|t| t.expire(cpu::get_duration()));
-        }
-    }
-}
-#[cfg(dead_code)]
-pub fn schedule() {
-    println!("schedule");
-
-    // 添加用户线程
-    SCHEDULER.lock(|s| {
-        s.add_thread(Thread::new_thread("clone", None));
-        s.add_thread(Thread::new_thread("execve", None));
-        s.add_thread(Thread::new_thread("getppid", None));
-        s.add_thread(Thread::new_thread("getpid", None));
-        s.add_thread(Thread::new_thread("dup2", None));
-        s.add_thread(Thread::new_thread("dup", None));
-        s.add_thread(Thread::new_thread("chdir", None));
-        s.add_thread(Thread::new_thread("mkdir_", None));
-        s.add_thread(Thread::new_thread("getcwd", None));
-        s.add_thread(Thread::new_thread("openat", None));
-        s.add_thread(Thread::new_thread("open", None));
-    });
-
-    TrapImpl::init();
-
-    println!("run use thread");
-    loop {
-        while let Some(next_thread) = SCHEDULER.lock(|v| v.get_next()) {
-            let status = next_thread.inner.lock().status;
-            match status {
-                ThreadStatus::Ready => {
-                    debug!("线程 {:?} 运行", next_thread.tid);
-                    next_thread.activate();
-                    // next_thread.inner.lock().status = ThreadStatus::Running;
-                    unsafe {
-                        __switch(get_sched_cx(), next_thread.task_cx);
-                    }
-                }
-                _ => {}
-            }
-        }
-        // TODO 没有可运行的线程了，休眠等待
-        unsafe {
-            shutdown();
         }
     }
 }

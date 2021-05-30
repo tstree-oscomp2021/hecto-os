@@ -6,7 +6,6 @@ use core::{
 
 use core_io::Read;
 use lazy_static::*;
-use spin::Mutex;
 use xmas_elf::ElfFile;
 
 use super::*;
@@ -20,6 +19,7 @@ use crate::{
     fs::*,
     mm::*,
     processor::get_sched_cx,
+    spinlock::SpinLock,
 };
 
 pub struct TidAllocator {
@@ -57,7 +57,7 @@ impl TidAllocator {
 
 lazy_static! {
     /// 用于分配 tid
-    pub(super) static ref TID_ALLOCATOR: Mutex<TidAllocator> = Mutex::new(TidAllocator::new());
+    pub(super) static ref TID_ALLOCATOR: SpinLock<TidAllocator> = SpinLock::new(TidAllocator::new());
 }
 
 #[derive(Debug)]
@@ -77,8 +77,8 @@ pub struct Thread {
     pub user_stack_top: VA,
     /// 当线程处于 Ready 状态时，task_cx 指向保存在内核栈中的 TaskContextImpl；
     pub task_cx: &'static TaskContextImpl,
-    /// 用 `Mutex` 包装一些可变的变量
-    pub inner: Mutex<ThreadInner>,
+    /// 用 `SpinLock` 包装一些可变的变量
+    pub inner: SpinLock<ThreadInner>,
 }
 
 /// 线程中需要可变的部分
@@ -141,7 +141,7 @@ impl Thread {
             process: KERNEL_PROCESS.clone(),
             user_stack_top: VA(0), // 内核线程的用户栈顶为 0，表示没有用户栈
             task_cx,
-            inner: Mutex::new(ThreadInner {
+            inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Running,
             }),
         });
@@ -171,7 +171,7 @@ impl Thread {
             process: KERNEL_PROCESS.clone(),
             user_stack_top: VA(0), // 内核线程的用户栈顶为 0，表示没有用户栈
             task_cx,
-            inner: Mutex::new(ThreadInner {
+            inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
             }),
         });
@@ -227,7 +227,7 @@ impl Thread {
             process,
             user_stack_top,
             task_cx,
-            inner: Mutex::new(ThreadInner {
+            inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
             }),
         });
@@ -270,7 +270,7 @@ impl Thread {
             process,
             user_stack_top: get_current_thread().user_stack_top,
             task_cx,
-            inner: Mutex::new(ThreadInner {
+            inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
             }),
         });

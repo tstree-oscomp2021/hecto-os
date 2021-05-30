@@ -18,7 +18,7 @@ impl Timer {
         }
     }
 
-    pub fn add(&mut self, mut deadline: Duration, callback: Callback) {
+    pub fn register(&mut self, mut deadline: Duration, callback: Callback) {
         while self.events.contains_key(&deadline) {
             deadline += Duration::from_nanos(1);
         }
@@ -30,8 +30,7 @@ impl Timer {
             if *entry.key() > now {
                 return;
             }
-            let (_, callback) = entry.remove_entry();
-            callback();
+            entry.remove_entry().1();
         }
     }
 }

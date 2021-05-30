@@ -14,7 +14,6 @@ use k210_soc::{
     sysctl,
 };
 use lazy_static::*;
-use spin::Mutex;
 
 use super::{BlockDevice, BLOCK_SZ};
 
@@ -717,13 +716,9 @@ fn io_init() {
                                                          // down
 }
 
-lazy_static! {
-    static ref PERIPHERALS: Mutex<Peripherals> = Mutex::new(Peripherals::take().unwrap());
-}
-
 fn init_sdcard() -> SDCard<SPIImpl<SPI0>> {
     // wait previous output
-    usleep(100000);
+    // usleep(100000);
     let peripherals = unsafe { Peripherals::steal() };
     // sysctl::pll_set_freq(sysctl::pll::PLL0, 800_000_000).unwrap();
     // sysctl::pll_set_freq(sysctl::pll::PLL1, 300_000_000).unwrap();

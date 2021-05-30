@@ -2,7 +2,7 @@
 
 use core::time::Duration;
 
-use riscv::register::{sie, sstatus, time};
+use riscv::register::{sie, time};
 
 use super::sbi::set_timer;
 use crate::{
@@ -28,9 +28,6 @@ pub fn init() {
     unsafe {
         // 开启 STIE，允许时钟中断
         sie::set_stimer();
-        // 开启 SIE（不是 sie 寄存器），全局中断使能，允许内核态被中断打断
-        // TODO 此处仅用于测试 timer，之后删掉
-        // sstatus::set_sie();
     }
     // 设置下一次时钟中断
     set_next_timeout();
@@ -48,6 +45,7 @@ pub fn tick() {
             debug!("{} 秒", TICKS[hart_id] / TICKS_PER_SEC);
         }
     }
+    TIMER.critical_section(|t| t.expire(super::cpu::get_duration()));
 }
 
 /// 设置下一次时钟中断
