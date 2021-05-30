@@ -39,7 +39,7 @@ impl Config<14> for ConfigImpl {
         (0x5400_0000, 0x1000), /* SPI2 */
     ];
     /// 时钟频率
-    const CLOCK_FREQ: usize = 403000000 / 62;
+    const CLOCK_FREQ: u64 = 403000000 / 62;
     /// boot cpu id
     const BOOT_CPU_ID: usize = 0;
 }

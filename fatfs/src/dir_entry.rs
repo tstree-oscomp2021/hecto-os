@@ -435,10 +435,17 @@ impl Into<LinuxDirent64> for DirEntryEditor {
 }
 impl Into<Stat> for DirEntryEditor {
     fn into(self) -> Stat {
+        let st_mode;
+        if self.data.attrs.contains(FileAttributes::DIRECTORY) {
+            st_mode = StatMode::S_IFDIR;
+        } else {
+            st_mode = StatMode::S_IFREG;
+        }
+
         Stat {
             st_dev: 0,
             st_ino: self.pos,
-            st_mode: StatMode::empty(),
+            st_mode,
             st_nlink: 1,
             st_uid: 0,
             st_gid: 0,
