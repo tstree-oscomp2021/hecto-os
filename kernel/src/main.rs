@@ -61,8 +61,8 @@ use crate::{
 pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
     if hart_id == ConfigImpl::BOOT_CPU_ID {
         init_board(hart_id, dtb_pa);
-        println!("\n{} {}", SYSNAME, RELEASE);
         mm::clear_bss();
+        println!("\n{} {}", SYSNAME, RELEASE);
         mm::init();
         fs::init();
     }

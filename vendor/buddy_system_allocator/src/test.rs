@@ -43,13 +43,13 @@ fn test_linked_list() {
 
 #[test]
 fn test_empty_heap() {
-    let mut heap = Heap::new();
+    let mut heap = Heap::<32>::new();
     assert!(heap.alloc(Layout::from_size_align(1, 1).unwrap()).is_err());
 }
 
 #[test]
 fn test_heap_add() {
-    let mut heap = Heap::new();
+    let mut heap = Heap::<32>::new();
     assert!(heap.alloc(Layout::from_size_align(1, 1).unwrap()).is_err());
 
     let space: [usize; 100] = [0; 100];
@@ -62,7 +62,7 @@ fn test_heap_add() {
 
 #[test]
 fn test_heap_oom() {
-    let mut heap = Heap::new();
+    let mut heap = Heap::<32>::new();
     let space: [usize; 100] = [0; 100];
     unsafe {
         heap.add_to_heap(space.as_ptr() as usize, space.as_ptr().add(100) as usize);
@@ -77,7 +77,7 @@ fn test_heap_oom() {
 #[test]
 fn test_heap_oom_rescue() {
     static mut SPACE: [usize; 100] = [0; 100];
-    let heap = LockedHeapWithRescue::new(|heap: &mut Heap| unsafe {
+    let heap = LockedHeapWithRescue::new(|heap: &mut Heap<32>, _layout: &Layout| unsafe {
         heap.add_to_heap(SPACE.as_ptr() as usize, SPACE.as_ptr().add(100) as usize);
     });
 
@@ -88,7 +88,7 @@ fn test_heap_oom_rescue() {
 
 #[test]
 fn test_heap_alloc_and_free() {
-    let mut heap = Heap::new();
+    let mut heap = Heap::<32>::new();
     assert!(heap.alloc(Layout::from_size_align(1, 1).unwrap()).is_err());
 
     let space: [usize; 100] = [0; 100];
@@ -131,4 +131,17 @@ fn test_frame_allocator_alloc_and_free() {
         let addr = frame.alloc(512).unwrap();
         frame.dealloc(addr, 512);
     }
+}
+
+#[test]
+fn test_frame_allocator_alloc_and_free_complex() {
+    let mut frame = FrameAllocator::new();
+    frame.add_frame(100, 1024);
+    for _ in 0..10 {
+        let addr = frame.alloc(1).unwrap();
+        frame.dealloc(addr, 1);
+    }
+    let addr1 = frame.alloc(1).unwrap();
+    let addr2 = frame.alloc(1).unwrap();
+    assert_ne!(addr1, addr2);
 }
