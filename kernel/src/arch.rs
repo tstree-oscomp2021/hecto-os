@@ -33,5 +33,5 @@ pub type RegisterImpl = arch_impl::register::RegisterImpl;
 pub use arch_impl::{
     cpu,
     switch::__switch,
-    trap::{__restore, __trap},
+    trap::{__restore, __trap, ret_to_restore},
 };

@@ -6,6 +6,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use core::sync::atomic::AtomicU64;
 
 use lazy_static::lazy_static;
 use xmas_elf::ElfFile;
@@ -26,6 +27,7 @@ lazy_static! {
         println!("init kernel process");
         Arc::new(Process {
             pid: 0,
+            times: Default::default(),
             inner: SpinLock::new(ProcessInner {
                 cwd: String::from("/"),
                 memory_set: MemorySet {
@@ -49,6 +51,15 @@ pub struct Process {
     /// 可变的部分。如果要更高的细粒度，去掉 ProcessInner 的 SpinLock，给里面的
     /// memory_set 等等分别加上
     pub inner: SpinLock<ProcessInner>,
+    pub times: Times,
+}
+
+#[derive(Default)]
+pub struct Times {
+    pub tms_utime: AtomicU64,  /* user time */
+    pub tms_stime: AtomicU64,  /* system time */
+    pub tms_cutime: AtomicU64, /* user time of children */
+    pub tms_cstime: AtomicU64, /* system time of children */
 }
 
 pub struct ProcessInner {
@@ -74,6 +85,7 @@ impl Process {
     pub fn from_elf(file: &ElfFile, pid: usize) -> Arc<Self> {
         Arc::new(Self {
             pid,
+            times: Default::default(),
             inner: SpinLock::new(ProcessInner {
                 cwd: String::from("/"),
                 memory_set: MemorySet::from_elf(file),
@@ -91,6 +103,7 @@ impl Process {
         let mut process_inner = self.inner.lock();
         Arc::new(Self {
             pid,
+            times: Default::default(),
             inner: SpinLock::new(ProcessInner {
                 cwd: process_inner.cwd.clone(),
                 memory_set: process_inner.memory_set.fork(),

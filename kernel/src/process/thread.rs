@@ -2,18 +2,18 @@ use alloc::{sync::Arc, vec::Vec};
 use core::{
     hash::{Hash, Hasher},
     mem::size_of,
+    sync::atomic::Ordering,
 };
 
 use core_io::Read;
-use lazy_static::*;
 use xmas_elf::ElfFile;
 
 use super::*;
 use crate::{
     arch::{
         PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch,
-        cpu::get_cpu_id,
-        interface::{PageTable, Register, TaskContext, TrapFrame},
+        cpu::{self, get_cpu_id},
+        interface::{PageTable, Register, TaskContext, Trap, TrapFrame},
     },
     board::{interface::Config, sbss_with_stack, ConfigImpl},
     fs::*,
@@ -28,10 +28,10 @@ pub struct TidAllocator {
 }
 
 impl TidAllocator {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         TidAllocator {
             current: 2, // XXX 0 和 1 被调度线程使用
-            recycled: Vec::with_capacity(4),
+            recycled: Vec::new(),
         }
     }
 
@@ -55,10 +55,8 @@ impl TidAllocator {
     }
 }
 
-lazy_static! {
-    /// 用于分配 tid
-    pub(super) static ref TID_ALLOCATOR: SpinLock<TidAllocator> = SpinLock::new(TidAllocator::new());
-}
+/// 用于分配 tid
+pub(super) static TID_ALLOCATOR: SpinLock<TidAllocator> = SpinLock::new(TidAllocator::new());
 
 #[derive(Debug)]
 pub struct Tid(usize);
@@ -85,6 +83,8 @@ pub struct Thread {
 pub struct ThreadInner {
     /// 线程状态
     pub status: ThreadStatus,
+    /// 线程进入/离开内核的时刻
+    pub cycles: u64,
 }
 
 #[allow(unused)]
@@ -143,6 +143,7 @@ impl Thread {
             task_cx,
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Running,
+                cycles: 0,
             }),
         });
         *(kernel_stack_top - THREAD_PTR_OFFSET).get_mut::<usize>() =
@@ -173,6 +174,7 @@ impl Thread {
             task_cx,
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
+                cycles: 0,
             }),
         });
         *(kernel_stack_range.end - THREAD_PTR_OFFSET).get_mut::<usize>() =
@@ -219,7 +221,7 @@ impl Thread {
         // TaskContextImpl
         let task_cx = VA(cx as *const TrapFrameImpl as usize - size_of::<TaskContextImpl>())
             .get_mut::<TaskContextImpl>();
-        task_cx.set_ra(crate::arch::__restore as usize);
+        task_cx.set_ra(crate::arch::ret_to_restore as usize);
         // println!("task_cx {:#p}", task_cx);
 
         let new_thread = Arc::new(Self {
@@ -229,6 +231,7 @@ impl Thread {
             task_cx,
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
+                cycles: 0,
             }),
         });
 
@@ -272,6 +275,7 @@ impl Thread {
             task_cx,
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
+                cycles: 0,
             }),
         });
 
@@ -283,16 +287,44 @@ impl Thread {
 
     /// 切换到另一个线程
     pub fn switch_to(&mut self, other: &Thread) {
+        self.inner.critical_section(|inner| {
+            let cur_cycles = cpu::get_cycles();
+            self.process
+                .times
+                .tms_stime
+                .fetch_add(cur_cycles - inner.cycles, Ordering::SeqCst);
+            // 线程从内核控制路径离开时的时刻
+            inner.cycles = cur_cycles;
+        });
+
         other.activate();
         unsafe {
             __switch(core::mem::transmute(&mut self.task_cx), other.task_cx);
         }
+
+        self.inner.critical_section(|inner| {
+            // 线程进入内核控制路径的时刻
+            inner.cycles = cpu::get_cycles();
+        });
     }
 
     pub fn yield_to_sched(&mut self) {
+        self.inner.critical_section(|inner| {
+            let cur_cycles = cpu::get_cycles();
+            self.process
+                .times
+                .tms_stime
+                .fetch_add(cur_cycles - inner.cycles, Ordering::SeqCst);
+            // 线程从内核控制路径离开时的时刻
+            inner.cycles = cur_cycles;
+        });
         unsafe {
             __switch(core::mem::transmute(&mut self.task_cx), *get_sched_cx());
         }
+        self.inner.critical_section(|inner| {
+            // 线程进入内核控制路径的时刻
+            inner.cycles = cpu::get_cycles();
+        });
     }
 
     /// 激活线程页表

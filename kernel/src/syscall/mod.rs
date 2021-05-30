@@ -4,7 +4,7 @@ mod misc;
 mod mm;
 mod process;
 use alloc::sync::Arc;
-use core::time::Duration;
+use core::{sync::atomic::Ordering, time::Duration};
 
 use fatfs::{LinuxDirent64, Stat};
 use fs::*;
@@ -13,10 +13,25 @@ use misc::*;
 use mm::*;
 use process::*;
 
-use crate::{arch::SyscallImpl, process::*};
+use crate::{
+    arch::{cpu, SyscallImpl},
+    process::*,
+};
 
 /// 系统调用的总入口
 pub fn syscall_handler() {
+    let cur_thread = get_current_thread();
+    cur_thread.inner.critical_section(|inner| {
+        let cur_cycles = cpu::get_cycles();
+        cur_thread
+            .process
+            .times
+            .tms_utime
+            .fetch_add(cur_cycles - inner.cycles, Ordering::SeqCst);
+        // 线程进入内核控制路径时的时刻
+        inner.cycles = cur_cycles;
+    });
+
     let context = get_current_trapframe();
 
     // 无论如何处理，一定会跳过当前的 ecall 指令
@@ -85,7 +100,7 @@ pub fn syscall_handler() {
             args[5],
         ),
         // 其他
-        SyscallImpl::times => sys_times(args[0] as *mut Times),
+        SyscallImpl::times => sys_times(args[0] as *mut usize),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
         SyscallImpl::gettimeofday => {
             sys_gettimeofday(args[0] as *mut TimeVal, args[1] as *mut TimeZone)
@@ -96,6 +111,17 @@ pub fn syscall_handler() {
         // 特定于架构的
         _ => syscall_id.arch_specific_syscall_handler(),
     } as usize;
+
+    cur_thread.inner.critical_section(|inner| {
+        let cur_cycles = cpu::get_cycles();
+        cur_thread
+            .process
+            .times
+            .tms_stime
+            .fetch_add(cur_cycles - inner.cycles, Ordering::SeqCst);
+        // 线程从内核控制路径离开时的时刻
+        inner.cycles = cur_cycles;
+    });
 }
 
 pub mod interface {

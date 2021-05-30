@@ -61,7 +61,7 @@ pub mod interface {
         /// MMIO 起始地址
         const MMIO: [(usize, usize); MMIO_N];
         /// 时钟频率
-        const CLOCK_FREQ: usize;
+        const CLOCK_FREQ: u64;
         /// boot cpu id
         const BOOT_CPU_ID: usize;
 

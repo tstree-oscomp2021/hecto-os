@@ -11,15 +11,15 @@ use crate::{
 };
 
 /// 触发时钟中断计数
-pub static mut TICKS: [usize; 2] = [0; 2];
+pub static mut TICKS: [u64; 2] = [0; 2];
 
-const TICKS_PER_SEC: usize = 100;
-const MSEC_PER_SEC: usize = 1_000;
-const USEC_PER_SEC: usize = 1_000_000;
-const NSEC_PER_SEC: usize = 1_000_000_000;
+const TICKS_PER_SEC: u64 = 100;
+const MSEC_PER_SEC: u64 = 1_000;
+const USEC_PER_SEC: u64 = 1_000_000;
+const NSEC_PER_SEC: u64 = 1_000_000_000;
 /// 时钟中断的间隔，单位是 CPU 指令
 /// 中断间隔 = 每秒时钟周期数 / 每秒 tick 数 = 每次 tick 经过的时钟周期数
-const INTERVAL: usize = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC;
+pub const INTERVAL: u64 = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC;
 
 /// 初始化时钟中断
 ///
@@ -53,31 +53,29 @@ pub fn tick() {
 /// 获取当前时间，加上中断间隔，通过 SBI 调用预约下一次中断
 #[inline]
 fn set_next_timeout() {
-    set_timer(time::read() + INTERVAL);
+    set_timer(time::read() + INTERVAL as usize);
 }
 
 #[allow(unused)]
-pub fn get_time_ms() -> usize {
+pub fn get_time_ms() -> u64 {
     // 指令周期数 / 每毫秒时钟周期数
-    time::read() / (ConfigImpl::CLOCK_FREQ / MSEC_PER_SEC)
+    time::read() as u64 / (ConfigImpl::CLOCK_FREQ / MSEC_PER_SEC)
 }
 
 /// 返回 (sec, usec)
 #[allow(unused)]
 pub fn get_time() -> (u64, u64) {
-    let mut usec = time::read() / (ConfigImpl::CLOCK_FREQ / USEC_PER_SEC);
+    let mut usec = time::read() as u64 / (ConfigImpl::CLOCK_FREQ / USEC_PER_SEC);
 
-    (
-        usec as u64 / USEC_PER_SEC as u64,
-        usec as u64 % USEC_PER_SEC as u64,
-    )
+    (usec / USEC_PER_SEC, usec % USEC_PER_SEC)
 }
 
 pub fn get_duration() -> Duration {
-    let nsec = time::read() * (NSEC_PER_SEC / 1000) / (ConfigImpl::CLOCK_FREQ / 1000);
+    let nsec = time::read() as u64 * (NSEC_PER_SEC / 1000) / (ConfigImpl::CLOCK_FREQ / 1000);
 
-    Duration::new(
-        nsec as u64 / NSEC_PER_SEC as u64,
-        (nsec as u64 % NSEC_PER_SEC as u64) as u32,
-    )
+    Duration::new(nsec / NSEC_PER_SEC, (nsec % NSEC_PER_SEC) as u32)
+}
+
+pub fn get_cycles() -> u64 {
+    time::read() as u64
 }

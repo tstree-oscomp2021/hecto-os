@@ -1,7 +1,12 @@
 use alloc::boxed::Box;
-use core::time::Duration;
+use core::{sync::atomic::Ordering, time::Duration};
 
-use crate::{arch::cpu, get_current_thread, timer::TIMER, ThreadStatus};
+use crate::{
+    arch::cpu::{self, INTERVAL},
+    get_current_thread,
+    timer::TIMER,
+    ThreadStatus,
+};
 
 macro_rules! str2c {
     ($s:expr) => {{
@@ -61,21 +66,13 @@ pub(super) fn sys_gettimeofday(tv: *mut TimeVal, _tz: *mut TimeZone) -> isize {
     0
 }
 
-pub struct Times {
-    tms_utime: u64,  /* user time */
-    tms_stime: u64,  /* system time */
-    tms_cutime: u64, /* user time of children */
-    tms_cstime: u64, /* system time of children */
-}
-
-pub(super) fn sys_times(buf: *mut Times) -> isize {
+pub(super) fn sys_times(buf: *mut usize) -> isize {
+    let times = &get_current_thread().process.times;
     unsafe {
-        *buf = Times {
-            tms_utime: 0,
-            tms_stime: 0,
-            tms_cutime: 0,
-            tms_cstime: 0,
-        };
+        *buf.offset(0) = (times.tms_utime.load(Ordering::Acquire) / INTERVAL) as usize;
+        *buf.offset(1) = (times.tms_stime.load(Ordering::Acquire) / INTERVAL) as usize;
+        *buf.offset(2) = (times.tms_cutime.load(Ordering::Acquire) / INTERVAL) as usize;
+        *buf.offset(3) = (times.tms_cstime.load(Ordering::Acquire) / INTERVAL) as usize;
     }
 
     0

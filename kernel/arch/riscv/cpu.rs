@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-pub use super::timer::{get_duration, get_time};
+pub use super::timer::{get_cycles, get_duration, get_time, INTERVAL};
 
 /// 保存 hart_id
 pub unsafe fn set_cpu_id(hart_id: usize) {

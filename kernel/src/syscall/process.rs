@@ -19,6 +19,15 @@ pub(super) fn sys_exit(status: i32) -> ! {
         // 2. 通知父进程
         let process_inner = cur_thread.process.inner.lock();
         if let Some(parent) = process_inner.parent.upgrade() {
+            parent.times.tms_cutime.fetch_add(
+                cur_thread.process.times.tms_utime.load(Ordering::Acquire),
+                Ordering::SeqCst,
+            );
+            parent.times.tms_cstime.fetch_add(
+                cur_thread.process.times.tms_stime.load(Ordering::Acquire),
+                Ordering::SeqCst,
+            );
+
             parent.inner.lock().child_exited.push((
                 cur_thread.process.pid,
                 Arc::downgrade(&cur_thread.process).clone(),

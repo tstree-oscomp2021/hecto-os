@@ -3,8 +3,8 @@ use riscv::register::{
     sepc, stvec,
 };
 
-use super::timer;
-use crate::{syscall::syscall_handler, trap::handle_pagefault};
+use super::{cpu, timer};
+use crate::{get_current_thread, syscall::syscall_handler, trap::handle_pagefault};
 
 global_asm!(include_str!("./trap.asm"));
 extern "C" {
@@ -96,4 +96,16 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         }
     }
     // println!("handle_interrupt end");
+}
+
+// 用户线程第一次执行，经此函数进入 __restore
+pub fn ret_to_restore() {
+    get_current_thread().inner.critical_section(|inner| {
+        // 线程第一次进入用户态的时刻
+        inner.cycles = cpu::get_cycles();
+    });
+
+    let restore_va = __restore as usize;
+    // XXX unsafe! 这里的 `8(sp)` 是函数暂存返回地址的地方
+    unsafe { llvm_asm!("sd $0, 8(sp)" :: "r"(restore_va) :: "volatile") };
 }
