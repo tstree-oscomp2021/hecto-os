@@ -75,7 +75,7 @@ pub struct Thread {
     pub inner: SpinLock<ThreadInner>,
 }
 
-/// 线程中需要可变的部分
+/// 线程中需要同步访问的部分
 pub struct ThreadInner {
     /// 线程状态
     pub status: ThreadStatus,
@@ -105,7 +105,10 @@ const TRAP_FRAME_OFFSET: usize = THREAD_PTR_OFFSET + size_of::<TrapFrameImpl>();
 /// 获取当前线程的内核栈顶
 pub fn get_cur_kernel_stack_top() -> VA {
     // XXX 可能的问题：sp 刚好在栈底，得到 guard page 里的内容，发生 page fault
-    VA(round_up!(RegisterImpl::sp(), ConfigImpl::KERNEL_STACK_SIZE))
+    VA(round_up!(
+        RegisterImpl::sp(),
+        ConfigImpl::KERNEL_STACK_ALIGN_SIZE
+    ))
 }
 /// 获取当前线程的可变引用
 pub fn get_current_thread() -> &'static mut Thread {

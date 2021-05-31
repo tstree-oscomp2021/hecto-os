@@ -28,7 +28,7 @@ BOARD		?=
 ARCH		?=
 
 RUSTFLAGS	:=	-C link-arg=-T$(MAKEFILE_DIR)linker.ld -C force-frame-pointers=yes
-FEATURES	:=	"$(LOG) $(BOARD) $(ARCH)"
+FEATURES	:=	"$(LOG) $(BOARD)"
 BUILD_ARGS	:=	--features $(FEATURES) --target=$(TARGET) --no-default-features
 ifeq ($(MODE), release)
 	BUILD_ARGS += --release

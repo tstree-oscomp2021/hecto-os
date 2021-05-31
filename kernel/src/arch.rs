@@ -1,7 +1,3 @@
-#[cfg(feature = "riscv64")]
-#[path = "../arch/riscv/mod.rs"]
-mod arch_impl;
-
 pub mod interface {
     pub use crate::{
         logger::interface::Console,
@@ -18,20 +14,18 @@ pub mod interface {
     }
 }
 
-pub type PageTableImpl = arch_impl::page_table::PageTableImpl;
-pub type PTEImpl = arch_impl::page_table::PTEImpl;
-
-pub type TrapImpl = arch_impl::trap::TrapImpl;
-pub type TrapFrameImpl = arch_impl::trap_context::TrapFrameImpl;
-pub type TaskContextImpl = arch_impl::task_context::TaskContextImpl;
-
-pub type SyscallImpl = arch_impl::syscall::SyscallImpl;
-
-pub type ConsoleImpl = arch_impl::console::ConsoleImpl;
-pub type RegisterImpl = arch_impl::register::RegisterImpl;
+#[cfg(target_arch = "riscv64")]
+#[path = "../arch/riscv/mod.rs"]
+mod arch_impl;
 
 pub use arch_impl::{
+    console::ConsoleImpl,
     cpu,
+    page_table::{PTEImpl, PageTableImpl},
+    register::RegisterImpl,
     switch::__switch,
-    trap::{__restore, __trap, ret_to_restore},
+    syscall::SyscallImpl,
+    task_context::TaskContextImpl,
+    trap::{TrapImpl, __restore, __trap, ret_to_restore},
+    trap_context::TrapFrameImpl,
 };

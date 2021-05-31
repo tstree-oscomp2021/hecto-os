@@ -63,7 +63,7 @@ pub struct Times {
 pub struct ProcessInner {
     /// 当前工作目录
     pub cwd: String,
-    /// 进程中的线程公用页表 / 内存映射
+    /// 进程的地址空间
     pub address_space: AddressSpace,
     /// 文件描述符
     pub fd_table: Vec<Option<Arc<FileDescriptor>>>,

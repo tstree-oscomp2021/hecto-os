@@ -22,13 +22,9 @@ pub mod interface {
         fn set_entry_point(&mut self, value: usize) -> &mut Self;
 
         /// 按照函数调用规则写入参数
-        ///
-        /// 没有考虑一些特殊情况，例如超过 8 个参数，或 struct 空间展开
         fn set_arguments(&mut self, arguments: &[usize]) -> &mut Self;
 
-        /// 为线程构建初始 `Context`
-        ///
-        /// 线程通过 __restore 启动时会载入这些上下文
+        /// 为线程构建初始 `TrapFrameImpl`
         fn init(
             &mut self,
             stack_top: usize,

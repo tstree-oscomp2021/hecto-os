@@ -1,6 +1,5 @@
 TARGET		:=	riscv64imac-unknown-none-elf
 BOARD		:=	k210
-ARCH 		:=	riscv64
 SBI			:=	rustsbi-0.2.0-alpha.4-k210
 
 include ../Makefile.common

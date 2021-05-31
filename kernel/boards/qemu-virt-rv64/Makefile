@@ -1,7 +1,6 @@
 TARGET		:=	riscv64imac-unknown-none-elf
 BOARD		:=	qemu-virt-rv64
 KERNEL_ENTRY_PA := 0x80200000
-ARCH 		:=	riscv64
 SBI			:=	rustsbi-qemu
 
 include ../Makefile.common

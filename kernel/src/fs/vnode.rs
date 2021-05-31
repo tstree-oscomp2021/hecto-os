@@ -28,7 +28,7 @@ pub struct Vnode {
     ),
     // 完整路径
     pub full_path: String,
-    // inode，对应一个可以 ReadWriteSeek 的文件对象
+    //  inode，一个实现了 Inode Trait 的文件对象
     pub inode: Box<dyn Inode + Send + Sync>,
 }
 

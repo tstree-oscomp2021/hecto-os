@@ -28,12 +28,8 @@ k210-soc = { path = "../k210-soc" }
 default = []
 
 # board
-k210 = ["riscv64"]
-qemu-virt-rv64 = ["riscv64"]
-
-# arch
-aarch64 = []
-riscv64 = []
+k210 = []
+qemu-virt-rv64 = []
 
 # log level
 debug = []

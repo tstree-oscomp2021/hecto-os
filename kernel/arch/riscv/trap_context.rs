@@ -60,8 +60,6 @@ impl TrapFrame for TrapFrameImpl {
     }
 
     /// 按照函数调用规则写入参数
-    ///
-    /// 没有考虑一些特殊情况，例如超过 8 个参数，或 struct 空间展开
     fn set_arguments(&mut self, arguments: &[usize]) -> &mut Self {
         assert!(arguments.len() <= 8);
         self.x[10..(10 + arguments.len())].copy_from_slice(arguments);
@@ -69,8 +67,6 @@ impl TrapFrame for TrapFrameImpl {
     }
 
     /// 为线程构建初始 `TrapFrameImpl`
-    ///
-    /// 线程通过 __restore 启动时会载入这些上下文
     fn init(
         &mut self,
         stack_top: usize,
