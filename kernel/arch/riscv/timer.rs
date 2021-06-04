@@ -19,7 +19,7 @@ const USEC_PER_SEC: u64 = 1_000_000;
 const NSEC_PER_SEC: u64 = 1_000_000_000;
 /// 时钟中断的间隔，单位是 CPU 指令
 /// 中断间隔 = 每秒时钟周期数 / 每秒 tick 数 = 每次 tick 经过的时钟周期数
-pub const INTERVAL: u64 = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC;
+pub const INTERVAL: u64 = ConfigImpl::CLOCK_FREQ / TICKS_PER_SEC - 1;
 
 /// 初始化时钟中断
 ///

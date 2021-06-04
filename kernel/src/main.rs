@@ -15,7 +15,8 @@
     drain_filter,
     map_first_last,
     const_btree_new,
-    const_fn_trait_bound
+    const_fn_trait_bound,
+    allocator_api
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]

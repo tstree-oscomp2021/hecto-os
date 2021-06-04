@@ -124,6 +124,10 @@ impl VA {
     pub fn get_mut<T>(&self) -> &'static mut T {
         unsafe { &mut *(self.0 as *mut T) }
     }
+
+    pub fn as_mut<T>(&self) -> &'static mut T {
+        unsafe { &mut *(self.0 as *mut T) }
+    }
 }
 
 /// 为各种仅包含一个 usize 的类型实现运算操作
