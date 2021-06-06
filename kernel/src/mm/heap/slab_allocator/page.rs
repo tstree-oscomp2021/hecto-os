@@ -87,9 +87,9 @@ pub unsafe fn page_free(addr: VA, npages: usize) {
 }
 
 #[allow(dead_code)]
-pub unsafe fn page_alloc(npages: usize) -> *mut () {
+pub unsafe fn page_alloc(npages: usize) -> VA {
     if npages == 0 {
-        return null_mut();
+        return VA(0);
     }
 
     let mut prev = &mut FREE_PAGE_LIST;
@@ -117,10 +117,9 @@ pub unsafe fn page_alloc(npages: usize) -> *mut () {
         iter_ptr = *prev;
     }
 
-    iter_ptr as *mut ()
+    VA(iter_ptr as usize)
 }
 
-#[allow(dead_code)]
 pub unsafe fn page_init(addr: VA, npages: usize) {
     let cur: &mut PageHead = addr.as_mut();
     cur.npages = npages;

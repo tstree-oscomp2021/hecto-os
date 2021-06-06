@@ -16,7 +16,8 @@
     map_first_last,
     const_btree_new,
     const_fn_trait_bound,
-    allocator_api
+    allocator_api,
+    inline_const
 )]
 // #![allow(dead_code)]
 // #![allow(unused)]
@@ -50,7 +51,7 @@ pub use process::*;
 use crate::{
     arch::{
         TaskContextImpl, TrapImpl, __switch,
-        cpu::shutdown,
+        cpu::{get_duration, shutdown},
         interface::{PageTable, Trap},
     },
     board::{init_board, interface::Config, ConfigImpl},
@@ -120,16 +121,26 @@ pub fn schedule() {
         "sleep"
     ];
 
+    let before_create_user_thread = get_duration();
     let mut testsuits = alloc::collections::VecDeque::new();
     for file in file_name {
         testsuits.push_back(Thread::new_thread(file, None));
     }
+    let after_create_user_thread = get_duration();
 
     println!("run user thread");
     loop {
         if let Some(test) = testsuits.pop_front() {
             SCHEDULER.critical_section(|s| s.add_thread(test));
         } else {
+            info!(
+                "create all user threads take {:?}",
+                after_create_user_thread - before_create_user_thread
+            );
+            info!(
+                "run all user threads take {:?}",
+                get_duration() - after_create_user_thread
+            );
             unsafe {
                 shutdown();
             }

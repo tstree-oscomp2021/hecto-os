@@ -66,6 +66,9 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 
 build: $(KERNEL_BIN)
 
+doc:
+	RUSTFLAGS="$(RUSTFLAGS)" cargo doc --document-private-items $(BUILD_ARGS)
+
 check:
 	RUSTFLAGS="$(RUSTFLAGS)" cargo check $(BUILD_ARGS) --offline
 

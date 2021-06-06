@@ -34,6 +34,16 @@ impl<T> From<*mut T> for VA {
         Self(pointer as usize)
     }
 }
+impl<T> From<&T> for VA {
+    fn from(pointer: &T) -> Self {
+        Self(pointer as *const _ as usize)
+    }
+}
+impl<T> From<&mut T> for VA {
+    fn from(pointer: &mut T) -> Self {
+        Self(pointer as *const _ as usize)
+    }
+}
 
 /// 虚实页号之间的线性映射
 impl From<PPN> for VPN {
@@ -127,6 +137,18 @@ impl VA {
 
     pub fn as_mut<T>(&self) -> &'static mut T {
         unsafe { &mut *(self.0 as *mut T) }
+    }
+
+    pub fn as_ptr<T>(&self) -> *const T {
+        self.0 as *const T
+    }
+
+    pub fn as_mut_ptr<T>(&self) -> *mut T {
+        self.0 as *mut T
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.0 == 0
     }
 }
 
@@ -277,13 +299,13 @@ impl PartialEq for VARangeOrd {
 #[macro_export]
 macro_rules! round_down {
     ($value: expr, $boundary: expr) => {
-        ($value & !($boundary - 1))
+        ($value as usize & !($boundary - 1))
     };
 }
 
 #[macro_export]
 macro_rules! round_up {
     ($value: expr, $boundary: expr) => {
-        ($value + $boundary - 1 & !($boundary - 1))
+        ($value as usize + $boundary - 1 & !($boundary - 1))
     };
 }
