@@ -2,7 +2,7 @@ use alloc::{boxed::Box, string::String, sync::Arc};
 use core::hash::Hash;
 
 use fatfs::Inode;
-use hashbrown::HashSet;
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 
 use super::*;
@@ -12,7 +12,7 @@ use crate::{
 };
 
 lazy_static! {
-    pub static ref VNODE_HASHSET: SpinLock<HashSet<Arc<Vnode>>> = Default::default();
+    pub static ref VNODE_HASHSET: SpinLock<HashMap<&'static str, Arc<Vnode>>> = Default::default();
     pub static ref CONSOLE_VNODE: Arc<Vnode> = Arc::new(Vnode {
         fs: &(None, None),
         full_path: String::new(),

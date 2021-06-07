@@ -21,6 +21,7 @@ impl<T> ForwardList<T> {
 
     /// Remove node from list.
     /// This operation should compute in O(n) time.
+    /// TODO 换成双向链表
     pub unsafe fn remove(&mut self, node: *mut ForwardListNode<T>) {
         let mut prev = &mut self.head;
         while *prev != node {

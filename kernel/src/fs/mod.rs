@@ -92,14 +92,19 @@ pub fn regeister_file_system(fs: FileSystem) {
                 Option<Dir<BufBlockDevice<BlockDeviceImpl>>>,
             ) = unsafe { transmute(fs_dir) };
 
+            let s: *const str = &*fs.mount_point;
+
             (*fs_dir).0 = Some(fs);
             (*fs_dir).1 = Some(fs_dir.0.as_ref().unwrap().fs.root_dir());
 
-            vnode::VNODE_HASHSET.lock().insert(Arc::new(Vnode {
-                fs: fs_dir,
-                full_path: fs_dir.0.as_ref().unwrap().mount_point.clone(),
-                inode: alloc::boxed::Box::new(fs_dir.0.as_ref().unwrap().fs.root_dir()),
-            }));
+            vnode::VNODE_HASHSET.lock().insert(
+                unsafe { &*s },
+                Arc::new(Vnode {
+                    fs: fs_dir,
+                    full_path: fs_dir.0.as_ref().unwrap().mount_point.clone(),
+                    inode: alloc::boxed::Box::new(fs_dir.0.as_ref().unwrap().fs.root_dir()),
+                }),
+            );
 
             return;
         }

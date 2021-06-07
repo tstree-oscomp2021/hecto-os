@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, string::String, sync::Arc};
 
 use bitflags::*;
-use fatfs::StatMode;
+use fatfs::{Inode, StatMode};
 use lazy_static::lazy_static;
 
 use super::{
@@ -11,7 +11,6 @@ use super::{
     FileSystem, Vnode, *,
 };
 use crate::{
-    arch::{interface::Console, ConsoleImpl},
     drivers::BufBlockDevice,
     io::{Error, ErrorKind, Read, Seek, SeekFrom, Write},
 };
@@ -76,7 +75,7 @@ impl Drop for FileDescriptor {
     /// XXX 待测试
     fn drop(&mut self) {
         if alloc::sync::Arc::<Vnode>::strong_count(&self.vnode) == 2 {
-            VNODE_HASHSET.critical_section(|hs| hs.remove(&self.vnode));
+            VNODE_HASHSET.critical_section(|hs| hs.remove(&*self.vnode.full_path));
         }
     }
 }
@@ -127,31 +126,29 @@ impl Seek for FileDescriptor {
 
 pub fn file_open(full_path: String, flags: OpenFlags) -> core_io::Result<Arc<FileDescriptor>> {
     debug!("open {}", full_path);
-    let mut vnode = Arc::new(Vnode {
-        fs: &(None, None),
-        full_path,
-        inode: Box::new(ConsoleImpl::CONSOLE_INSTANCE),
-    });
+    let mut vnode: Arc<Vnode>;
+    let path: *const str = &*full_path;
 
     let mut vnode_set = VNODE_HASHSET.lock();
-    if let Some(v) = vnode_set.get(&vnode) {
+    if let Some(v) = vnode_set.get(unsafe { &*path }) {
         vnode = v.clone();
     } else {
-        let fs_dir = filesystem_lookup(&vnode.full_path);
+        let fs_dir = filesystem_lookup(unsafe { &*path });
         assert!(fs_dir.0.is_some());
-        unsafe { Arc::get_mut_unchecked(&mut vnode) }.fs = fs_dir;
-
-        let path = &vnode.full_path[fs_dir.0.as_ref().unwrap().mount_point.len()..];
-
-        unsafe { Arc::get_mut_unchecked(&mut vnode) }.inode = if flags.contains(OpenFlags::CREAT) {
-            Box::new(fs_dir.1.as_ref().unwrap().create_file(path)?)
+        let inode: Box<dyn Inode + Send + Sync> = if flags.contains(OpenFlags::CREAT) {
+            Box::new(fs_dir.1.as_ref().unwrap().create_file(unsafe { &*path })?)
         } else if flags.contains(OpenFlags::DIRECTORY) {
-            Box::new(fs_dir.1.as_ref().unwrap().open_dir(path)?)
+            Box::new(fs_dir.1.as_ref().unwrap().open_dir(unsafe { &*path })?)
         } else {
-            Box::new(fs_dir.1.as_ref().unwrap().open_file(path)?)
+            Box::new(fs_dir.1.as_ref().unwrap().open_file(unsafe { &*path })?)
         };
 
-        vnode_set.insert(vnode.clone());
+        vnode = Arc::new(Vnode {
+            fs: fs_dir,
+            full_path,
+            inode,
+        });
+        vnode_set.insert(unsafe { &*path }, vnode.clone());
     }
 
     let pos = if flags.contains(OpenFlags::APPEND) {
