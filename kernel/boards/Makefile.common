@@ -8,7 +8,7 @@ ROOT_DIR := $(abspath $(MAKEFILE_COMMON_DIR)../..)
 TARGET_DIR := $(ROOT_DIR)/target/$(TARGET)
 
 # Building
-MODE		?=	release
+MODE		?=	debug
 KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/kernel
 KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img

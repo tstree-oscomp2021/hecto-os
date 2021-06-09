@@ -1,3 +1,4 @@
+#![allow(warnings)]
 //! <p id="core_io-show-docblock"></p>
 //! This is just a listing of the functionality available in this crate. See
 //! the [std documentation](https://doc.rust-lang.org/nightly/std/io/index.html)

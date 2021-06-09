@@ -3,19 +3,20 @@
 #[macro_use]
 pub mod address;
 pub mod address_space;
-pub mod frame_allocator;
 pub mod heap;
 pub mod page_table;
+pub mod physical_page;
 
 pub use address::{VARange, VARangeOrd, VPNRange, PA, PPN, VA, VPN};
 pub use address_space::{AddressSpace, MapArea, MapType};
-pub use frame_allocator::{frame_alloc, Frame, FrameTracker};
+pub use heap::linked_list::forward_list::{ForwardList, ForwardListNode};
 pub use page_table::KERNEL_PAGE_TABLE;
+pub use physical_page::{frame_alloc, FrameTracker};
 
 /// 初始化内存相关的子模块
 pub fn init() {
     heap::init();
-    frame_allocator::init_frame_allocator();
+    physical_page::init_frame_allocator();
 }
 
 /// bss 段清零
@@ -29,10 +30,12 @@ pub fn clear_bss() {
             cur = cur.offset(1);
         }
 
-        // 测试后面的内存是否能访问
-        cur = (ConfigImpl::MEMORY_END as *mut usize).offset(-1);
-        *cur = 0x1234_5678;
-        assert_eq!(*cur, 0x1234_5678);
+        cur = ekernel as *mut usize;
+        while cur < ConfigImpl::MEMORY_END as *mut usize {
+            core::ptr::write_volatile(cur, core::mem::zeroed());
+            cur = cur.offset(1);
+        }
+
         println!("bss segment cleared");
     }
 }

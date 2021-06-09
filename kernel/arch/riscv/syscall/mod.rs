@@ -1,4 +1,4 @@
-//! Syscall IDs. Based on https://git.musl-libc.org/cgit/musl/tree/arch/riscv64/bits/syscall.h.in
+//! Syscall IDs. Based on <https://git.musl-libc.org/cgit/musl/tree/arch/riscv64/bits/syscall.h.in>
 
 use crate::arch::interface::Syscall;
 

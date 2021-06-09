@@ -117,7 +117,7 @@ impl SlabAllocator {
     }
 
     unsafe fn zone_index(bytes: *mut usize) -> usize {
-        debug_assert!(*bytes < CHUNK_LIMIT);
+        debug_assert!(*bytes <= CHUNK_LIMIT);
 
         let mut n = *bytes;
         let i: usize = max(
@@ -143,7 +143,7 @@ impl SlabAllocator {
         }
 
         // 如果超过了 CHUNK_LIMIT，直接 page_alloc
-        if size >= CHUNK_LIMIT {
+        if size > CHUNK_LIMIT {
             let npages = round_up!(size, PAGE_SIZE) / PAGE_SIZE;
             chunk = page_alloc(npages).as_mut();
             if chunk.is_null() {

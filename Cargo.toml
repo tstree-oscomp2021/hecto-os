@@ -7,12 +7,14 @@ members = ["kernel"]
 resolver = "2"
 
 [profile.dev]
-debug-assertions = true
-lto = false
-opt-level = "z"
+# https://doc.rust-lang.org/cargo/reference/profiles.html#dev
+codegen-units = 1
+lto = true
+opt-level = 3
 panic = "abort"
 
 [profile.release]
+# https://doc.rust-lang.org/cargo/reference/profiles.html#release
 codegen-units = 1
 lto = true
 opt-level = 3

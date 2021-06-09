@@ -1,3 +1,5 @@
+pub use slab_allocator::linked_list;
+
 mod slab_allocator;
 
 use core::alloc::{GlobalAlloc, Layout};

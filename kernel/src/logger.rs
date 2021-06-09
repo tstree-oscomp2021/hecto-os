@@ -31,7 +31,7 @@ macro_rules! println {
     })
 }
 
-/// 前景色 https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
+/// 前景色 <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
 #[allow(unused)]
 #[repr(u8)]
 enum FGColor {

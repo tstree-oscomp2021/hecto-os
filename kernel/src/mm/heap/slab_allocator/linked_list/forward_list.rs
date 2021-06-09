@@ -43,7 +43,7 @@ impl<T> ForwardList<T> {
     }
 
     pub unsafe fn pop_front(&mut self) {
-        self.head = (&*self.head).next;
+        self.head = core::mem::replace(&mut (&mut *self.head).next, core::ptr::null_mut());
     }
 }
 impl<T> Deref for ForwardList<T> {

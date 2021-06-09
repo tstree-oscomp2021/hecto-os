@@ -19,6 +19,7 @@
     allocator_api,
     inline_const
 )]
+#![allow(rustdoc::private_intra_doc_links)]
 // #![allow(dead_code)]
 // #![allow(unused)]
 

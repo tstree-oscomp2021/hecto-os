@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::collections::BTreeMap;
 
 use xmas_elf::{program::Type, ElfFile};
 
@@ -114,7 +114,7 @@ impl AddressSpace {
         // 接下来判断是否需要复制页面
         let area = self.areas.get_mut(&VARangeOrd(va..va)).unwrap();
         let frame = area.data_frames.get_mut(&vpn).unwrap();
-        if Arc::strong_count(frame) > 1 {
+        if frame.get_ref_count() > 1 {
             let new_frame = frame_alloc().unwrap();
             VPN::from(new_frame.ppn)
                 .get_array::<usize>()

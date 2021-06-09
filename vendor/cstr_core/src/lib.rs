@@ -1,3 +1,4 @@
+#![allow(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(rust_2018_idioms)]
 #![cfg_attr(feature = "nightly", feature(const_raw_ptr_deref))]
@@ -1501,7 +1502,8 @@ mod tests {
     #[test]
     #[cfg(feature = "nightly")]
     fn const_cstr() {
-        const TESTING_CSTR: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"Hello world!\0") };
-        let _ = TESTING_CSTR.as_ptr(); 
+        const TESTING_CSTR: &CStr =
+            unsafe { CStr::from_bytes_with_nul_unchecked(b"Hello world!\0") };
+        let _ = TESTING_CSTR.as_ptr();
     }
 }

@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 
-use lazy_static::lazy_static;
 use virtio_drivers::{VirtIOBlk, VirtIOHeader};
 
 use super::{BlockDevice, BLOCK_SZ};
@@ -10,7 +9,7 @@ use crate::{
     frame_alloc,
     mm::{KERNEL_PAGE_TABLE, VA},
     sync::SpinLock,
-    Frame, FrameTracker, PA, PPN,
+    FrameTracker, PA, PPN,
 };
 
 #[allow(unused)]
@@ -33,11 +32,9 @@ impl BlockDevice for VirtIOBlock {
     }
 }
 
-lazy_static! {
-    /// CPU can submit request to VirtIO device through this circular queue, or obtain the result
-    /// of the request from the queue.
-    static ref QUEUE_FRAMES: SpinLock<Vec<FrameTracker>> = SpinLock::new(Vec::new());
-}
+/// CPU can submit request to VirtIO device through this circular queue, or
+/// obtain the result of the request from the queue.
+static QUEUE_FRAMES: SpinLock<Vec<FrameTracker>> = SpinLock::new(Vec::new());
 
 #[no_mangle]
 pub extern "C" fn virtio_dma_alloc(pages: usize) -> PA {
@@ -57,7 +54,9 @@ pub extern "C" fn virtio_dma_alloc(pages: usize) -> PA {
 pub extern "C" fn virtio_dma_dealloc(pa: PA, pages: usize) -> i32 {
     let mut ppn_base: PPN = pa.floor();
     for _ in 0..pages {
-        core::mem::drop(Frame { ppn: ppn_base });
+        QUEUE_FRAMES
+            .lock()
+            .drain_filter(|frame| frame.ppn == ppn_base);
         ppn_base += 1;
     }
     0

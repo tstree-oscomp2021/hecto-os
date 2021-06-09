@@ -13,7 +13,6 @@ use k210_soc::{
     spi::{aitm, frame_format, tmod, work_mode, SPIExt, SPIImpl, SPI},
     sysctl,
 };
-use lazy_static::*;
 
 use super::{BlockDevice, BLOCK_SZ};
 
