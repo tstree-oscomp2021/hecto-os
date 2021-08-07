@@ -9,11 +9,13 @@ pub unsafe fn set_cpu_id(hart_id: usize) {
 
 /// 获取当前 hart id
 pub fn get_cpu_id() -> usize {
-    let hart_id;
-    unsafe {
-        llvm_asm!("mv $0, tp" : "=r"(hart_id));
-    }
-    hart_id
+    // TODO
+    // let hart_id;
+    // unsafe {
+    //     llvm_asm!("mv $0, tp" : "=r"(hart_id));
+    // }
+    // hart_id
+    0
 }
 
 /// 向某 hart 发送处理器间中断以唤醒它

@@ -79,6 +79,8 @@ impl TrapFrame for TrapFrameImpl {
         // 设置初始参数
         if let Some(args) = arguments {
             self.set_arguments(args);
+        } else {
+            self.set_arguments(&[0; 4]);
         }
         // 设置入口地址
         self.sepc = entry_point;

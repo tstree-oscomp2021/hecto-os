@@ -3,6 +3,7 @@
 #[macro_use]
 pub mod address;
 pub mod address_space;
+pub mod flag;
 pub mod heap;
 pub mod page_table;
 pub mod physical_page;

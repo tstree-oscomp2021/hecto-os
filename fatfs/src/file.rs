@@ -154,7 +154,7 @@ impl<'a, T: ReadWriteSeek> File<'a, T> {
         }
     }
 
-    fn size(&self) -> Option<u32> {
+    pub fn size(&self) -> Option<u32> {
         match self.entry {
             Some(ref e) => e.inner().size(),
             None => None,

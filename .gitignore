@@ -13,3 +13,5 @@ target/
 .gdb_history
 
 k210.bin
+
+res/testsuits

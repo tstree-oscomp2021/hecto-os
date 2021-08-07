@@ -145,7 +145,7 @@ impl SlabAllocator {
         // 如果超过了 CHUNK_LIMIT，直接 page_alloc
         if size > CHUNK_LIMIT {
             let npages = round_up!(size, PAGE_SIZE) / PAGE_SIZE;
-            chunk = page_alloc(npages).as_mut();
+            chunk = page_alloc(npages).as_mut_ptr();
             if chunk.is_null() {
                 return null_mut();
             }

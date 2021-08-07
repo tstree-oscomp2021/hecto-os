@@ -25,7 +25,8 @@ impl core::fmt::Write for ConsoleImpl {
 
 impl Read for ConsoleImpl {
     fn read(&mut self, _buf: &mut [u8]) -> core_io::Result<usize> {
-        todo!()
+        // TODO
+        Ok(0)
     }
 }
 impl Write for ConsoleImpl {

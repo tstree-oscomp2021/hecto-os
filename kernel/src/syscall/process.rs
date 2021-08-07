@@ -5,7 +5,10 @@ use core_io::Read;
 use xmas_elf::ElfFile;
 
 use super::*;
-use crate::{fs::FILE_SYSTEM_TABLE, process::*, trap::interface::TrapFrame, AddressSpace};
+use crate::{
+    fs::FILE_SYSTEM_TABLE, process::*, schedule::SCHEDULE_THREAD, trap::interface::TrapFrame,
+    AddressSpace,
+};
 
 /// 线程退出
 /// 如果是进程中的最后一个线程，进程也退出，向父进程发送消息
@@ -47,13 +50,13 @@ pub(super) fn sys_exit(status: i32) -> ! {
 }
 
 pub(super) fn sys_clone(
-    _flags: u64,
+    flags: CloneFlags,
     stack: *mut usize,
     _parent_tid: *mut usize,
     _tls: usize,
-    _child_tid: *mut usize,
+    child_tid: *mut usize,
 ) -> isize {
-    let new_thread = get_current_thread().fork();
+    let new_thread = get_current_thread().fork(flags, child_tid);
     let trap_frame = new_thread.get_trapframe();
     if stack as usize != 0 {
         trap_frame
@@ -176,6 +179,14 @@ pub(super) fn sys_getppid() -> isize {
 }
 
 pub(super) fn sys_sched_yield() -> isize {
-    get_current_thread().yield_to_sched();
+    // get_current_thread().yield_to_sched();
+    get_current_thread().switch_to(unsafe { &*SCHEDULE_THREAD });
     0
 }
+
+pub(super) fn sys_set_tid_address(tidptr: *const u32) -> isize {
+    get_current_thread().inner.lock().clear_child_tid = tidptr as usize;
+    get_current_thread().get_tid() as isize
+}
+
+// pub(super) fn sys_rt_sigprocmask() {}

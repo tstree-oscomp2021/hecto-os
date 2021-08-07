@@ -48,12 +48,14 @@ pub(super) fn sys_uname(buf: *mut UTSName) -> isize {
 }
 
 /// 时间
+#[allow(dead_code)]
 pub struct TimeVal {
     tv_sec: u64,  /* seconds */
     tv_usec: u64, /* microseconds */
 }
 
 /// 时区
+#[allow(dead_code)]
 pub struct TimeZone {
     tz_minuteswest: i32, /* minutes west of Greenwich */
     tz_dsttime: i32,     /* type of DST correction */

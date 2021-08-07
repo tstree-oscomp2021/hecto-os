@@ -1,4 +1,4 @@
-//! __switch 函数，在内核态切换至其他线程，用于实现内核抢占
+//! __switch 函数，在内核态切换至其他线程
 
 .altmacro
 .macro SAVE_SN n
@@ -7,6 +7,7 @@
 .macro LOAD_SN n
     ld s\n, (\n+1)*8(sp)
 .endm
+
     .section .text
     .globl __switch
 __switch:

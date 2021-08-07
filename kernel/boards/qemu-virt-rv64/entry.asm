@@ -3,7 +3,19 @@
     .section .text.entry
     .globl _start
 _start:
-    li t1, 0xffffffc000000000       # 虚拟地址的偏移量
+    li      t0, 0x2000
+    csrs    sstatus, t0             # 开启 FPU
+
+    li      t1, 0xffffffc000000000  # 虚拟地址的偏移量
+
+    .option push
+    .option norelax
+1:
+    auipc   gp, %pcrel_hi(__global_pointer$)
+    addi    gp, gp, %pcrel_lo(1b)   # 由于此时 pc 仍是物理地址，所以此时 gp 还是物理地址
+    add     gp, gp, t1              # 得到虚拟地址
+    .option pop
+
 .A: # sp = boot_stack
     auipc   sp, %pcrel_hi(boot_stack)
     addi    sp, sp, %pcrel_lo(.A)   # 得到物理地址
@@ -22,7 +34,7 @@ _start:
 
 
 
-# 4K 大小的 boot_stack，放在 .bss，如果放在 .data 会占用空间
+# boot_stack
     .section .bss.stack
     .align 12
     .globl boot_stack

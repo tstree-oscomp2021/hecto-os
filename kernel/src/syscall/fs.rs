@@ -1,4 +1,7 @@
-use alloc::string::{String, ToString};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 use cstr_core::*;
@@ -14,6 +17,7 @@ use crate::{
 pub const AT_FDCWD: usize = -100isize as usize;
 
 pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
+    debug!("sys_write: fd = {:#x}", fd);
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts(buf, count) };
@@ -24,7 +28,22 @@ pub(super) fn sys_write(fd: usize, buf: *const u8, count: usize) -> isize {
     -1
 }
 
+pub(super) fn sys_writev(fd: usize, iovecs: &[&str]) -> isize {
+    let mut process_inner = get_current_thread().process.inner.lock();
+    if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
+        let mut buffer = Vec::with_capacity(4);
+        for &iovec in iovecs {
+            buffer.write(iovec.as_bytes()).unwrap();
+        }
+        if let Ok(n) = unsafe { Arc::get_mut_unchecked(fd) }.write(&buffer) {
+            return n as isize;
+        }
+    }
+    -1
+}
+
 pub(super) fn sys_read(fd: usize, buf: *mut u8, count: usize) -> isize {
+    debug!("sys_read: fd = {:#x}", fd);
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(fd) = process_inner.fd_table.get_mut(fd).unwrap() {
         let buffer = unsafe { from_raw_parts_mut(buf, count) };
@@ -35,12 +54,7 @@ pub(super) fn sys_read(fd: usize, buf: *mut u8, count: usize) -> isize {
     -1
 }
 
-pub(super) fn sys_openat(
-    dirfd: usize,
-    pathname: *const c_char,
-    flags: isize,
-    _mode: usize,
-) -> isize {
+pub(super) fn sys_openat(dirfd: usize, pathname: *const u8, flags: isize, _mode: usize) -> isize {
     let full_path = normalize_path(dirfd, pathname);
 
     match file::file_open(full_path, unsafe {
@@ -209,9 +223,27 @@ pub(super) fn sys_fstat(fd: usize, statbuf: *mut Stat) -> isize {
     }
 }
 
+pub(super) fn sys_fstatat(
+    dirfd: usize,
+    pathname: *const u8,
+    statbuf: *mut Stat,
+    _flags: usize,
+) -> isize {
+    let full_path = normalize_path(dirfd, pathname);
+
+    if let Ok(fd) = file::file_open(full_path, unsafe { OpenFlags::from_bits_unchecked(0) }) {
+        unsafe { *statbuf = fd.vnode.inode.get_fstat() };
+        0
+    } else {
+        -1
+    }
+}
+
 /// TODO 去掉中间重复的 `/` 和 `.`
 pub fn normalize_path(dirfd: usize, pathname: *const u8) -> String {
-    let mut path = unsafe { core::str::from_utf8_unchecked(CStr::from_ptr(pathname).to_bytes()) };
+    let mut path = unsafe {
+        core::str::from_utf8_unchecked(CStr::from_ptr(pathname as *const c_char).to_bytes())
+    };
     // 如果是以 / 开头，说明是绝对路径，直接返回
     if path.starts_with('/') {
         return path.to_string();

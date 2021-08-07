@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use core::cmp::max;
 
 use xmas_elf::{program::Type, ElfFile};
 
@@ -20,6 +21,8 @@ pub enum MapType {
     Framed,
     /// 设备
     Device,
+    /// 内核栈
+    KernelStack,
 }
 
 /// 一段连续地址的虚拟内存映射片段，Linux 中，线性区描述符为 vm_area_struct
@@ -35,11 +38,13 @@ pub struct AddressSpace {
     /// 页表
     pub page_table: PageTableImpl,
     pub areas: BTreeMap<VARangeOrd, MapArea>,
+    pub data_segment_end: VA,
+    pub data_segment_max: VA,
 }
 
 impl AddressSpace {
     /// sys_brk 可以增加的内存上限
-    const BRK_MAX: usize = 0x1000;
+    const BRK_MAX: usize = 0x3000;
 
     /// 创建一个映射了内核区域的 AddressSpace
     pub fn new_kernel() -> Self {
@@ -59,6 +64,8 @@ impl AddressSpace {
         Self {
             page_table,
             areas: BTreeMap::<VARangeOrd, MapArea>::new(),
+            data_segment_end: VA(1),
+            data_segment_max: VA(1),
         }
     }
 
@@ -75,6 +82,8 @@ impl AddressSpace {
                 for (&vpn, frame_tracker) in area.data_frames.iter() {
                     new_as.page_table.map_one(vpn, frame_tracker.ppn, flags);
                     self.page_table.remap_one(vpn, frame_tracker.ppn, flags);
+                    // XXX 因为修改了当前的页表，所以此处需要 sfence.vma
+                    unsafe { llvm_asm!("sfence.vma $0, x0" :: "r"(VA::from(vpn).0) :: "volatile") };
                 }
                 new_as.areas.insert(range.clone(), area.clone());
             } else {
@@ -124,8 +133,13 @@ impl AddressSpace {
             *frame = new_frame;
         }
 
+        #[cfg(not(feature = "k210"))]
+        unsafe {
+            llvm_asm!("sfence.vma $0, x0" :: "r"(va.0) :: "volatile");
+        }
         #[cfg(feature = "k210")]
         unsafe {
+            // TODO 缩小 sfence.vm 范围
             asm!("fence", "fence.i", ".word 0x10400073", "fence", "fence.i");
         }
     }
@@ -155,7 +169,24 @@ impl AddressSpace {
             map_type: MapType::Framed,
             map_perm,
         };
-        // println!("{:#x?} {:?}", va_range, map_perm);
+        // debug!("insert_framed_area {} {:?}", VARangeOrd(va_range.clone()), map_perm);
+        self.page_table
+            .map(VARangeOrd(va_range.clone()), &mut area, data);
+        self.areas.insert(VARangeOrd(va_range), area);
+    }
+
+    pub fn insert_kernel_stack_area(
+        &mut self,
+        va_range: VARange,
+        map_perm: PTEImpl,
+        data: Option<&[u8]>,
+    ) {
+        let mut area = MapArea {
+            data_frames: BTreeMap::new(),
+            map_type: MapType::KernelStack,
+            map_perm,
+        };
+        // debug!("insert_kernel_stack_area {} {:?}", VARangeOrd(va_range.clone()), map_perm);
         self.page_table
             .map(VARangeOrd(va_range.clone()), &mut area, data);
         self.areas.insert(VARangeOrd(va_range), area);
@@ -179,59 +210,64 @@ impl AddressSpace {
             map_perm.set(PTEImpl::WRITABLE, flags.is_write());
             map_perm.set(PTEImpl::EXECUTABLE, flags.is_execute());
             address_space.insert_framed_area(
-                // TODO va_range 取整
                 start_addr.into()..(start_addr + ph.mem_size() as usize).into(),
                 map_perm,
                 Some(&file.input[offset..offset + ph.file_size() as usize]),
             );
+            address_space.data_segment_end = VA(start_addr + ph.mem_size() as usize);
         }
+
+        address_space.data_segment_max = VA(round_up!(
+            address_space.data_segment_end.0,
+            ConfigImpl::PAGE_SIZE
+        )) + Self::BRK_MAX;
 
         address_space
     }
 
     // 在低地址区域划分一块可用的区域，返回 va_end
-    pub fn alloc_user_area(&mut self, mut size: usize) -> VA {
-        size += 2 * ConfigImpl::PAGE_SIZE;
-
-        let mut area_iter = self.areas.keys();
-        let mut va_end = VA(round_up!(
-            area_iter.next().unwrap().0.end.0,
-            ConfigImpl::PAGE_SIZE
-        )) + Self::BRK_MAX
-            + size;
-        for area in area_iter {
-            if va_end <= area.0.start {
+    pub fn alloc_user_area(&mut self, size: usize) -> VA {
+        let mut va_end = self.data_segment_max + ConfigImpl::PAGE_SIZE + size;
+        for area in self.areas.keys() {
+            if va_end + ConfigImpl::PAGE_SIZE <= area.0.start {
                 break;
             }
-            va_end = VA(round_up!(area.0.end.0, ConfigImpl::PAGE_SIZE)) + size;
+            va_end = max(
+                va_end,
+                VA(round_up!(area.0.end.0, ConfigImpl::PAGE_SIZE)) + ConfigImpl::PAGE_SIZE + size,
+            );
         }
 
-        va_end - ConfigImpl::PAGE_SIZE
+        va_end
     }
 
     /// addr = 0 时，返回 data 段末尾地址。否则成功返回 0，失败 -1
     pub fn brk(&mut self, addr: VA) -> isize {
-        let mut area_iter = self.areas.keys();
-        let data_end = area_iter.next().unwrap().0.end;
+        let cur_end = VA(round_up!(self.data_segment_end.0, ConfigImpl::PAGE_SIZE));
         if addr.0 == 0 {
-            return data_end.0 as isize;
+            return cur_end.0 as isize;
         }
         // 如果 addr 超过了允许的范围
-        if addr.0 >= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) + Self::BRK_MAX {
+        if addr > self.data_segment_max {
             return -1;
         }
 
-        let (mut va_range, mut area) = self.areas.pop_first().unwrap();
+        let (mut va_range, mut area) = self
+            .areas
+            .remove_entry(&VARangeOrd(self.data_segment_end..self.data_segment_end))
+            .unwrap();
         // 如果需要分配新的页面
-        if addr.0 >= round_up!(data_end.0, ConfigImpl::PAGE_SIZE) {
-            let vpn = addr.floor();
-            let dst_frame = frame_alloc().unwrap();
-            self.page_table.map_one(vpn, dst_frame.ppn, area.map_perm);
-            area.data_frames.insert(vpn, dst_frame);
+        if addr >= cur_end {
+            for vpn in VARangeOrd(cur_end..addr).vpn_range() {
+                let dst_frame = frame_alloc().unwrap();
+                self.page_table.map_one(vpn, dst_frame.ppn, area.map_perm);
+                area.data_frames.insert(vpn, dst_frame);
+            }
         }
+        self.data_segment_end = addr;
         va_range.0.end = addr;
         self.areas.insert(va_range, area);
 
-        0
+        addr.0 as isize
     }
 }

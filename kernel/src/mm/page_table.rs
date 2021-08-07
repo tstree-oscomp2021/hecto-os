@@ -42,6 +42,14 @@ pub trait PageTable {
         *pte = PTEImpl::new(ppn, flags | PTEImpl::VALID);
     }
 
+    /// 修改 flags
+    fn modify_flags(&mut self, vpn: VPN, flags: PTEImpl) {
+        // TODO find_pte 返回的一定是 valid 的，应对返回值判断是否为 None
+        let pte: &mut PTEImpl = self.find_pte(vpn).unwrap();
+        assert!(pte.is_valid(), "vpn {:x} has not been mapped before", vpn.0);
+        *pte = PTEImpl::new(pte.ppn(), flags | PTEImpl::VALID);
+    }
+
     /// 将 vpn 和 ppn（虚拟页面与物理页面）建立起联系
     fn map_one(&mut self, vpn: VPN, ppn: PPN, flags: PTEImpl) {
         let pte: &mut PTEImpl = self.find_pte_create(vpn).unwrap();
@@ -64,6 +72,7 @@ pub trait PageTable {
     }
 
     /// TODO 考虑页面不够的情况
+    /// XXX 假设 off 和 vaddr 的第12位是相等的
     fn map(&mut self, va_range: VARangeOrd, area: &mut MapArea, data: Option<&[u8]>) {
         match area.map_type {
             MapType::Linear => {
@@ -81,9 +90,15 @@ pub trait PageTable {
             MapType::Framed => {
                 match data {
                     // 有数据，且数据长度不为 0
+                    // 注意！data 段的长度可能会小于 va_range，这是因为少的那段是 bss 段！需要清零！
                     Some(data) if data.len() != 0 => {
+                        debug_assert_eq!(
+                            va_range.0.start.page_offset(),
+                            VA::from(data.as_ptr() as usize).page_offset()
+                        );
+
                         let src_vpn_range = VA::from(data.as_ptr()).floor()
-                            ..VA::from(data.as_ptr() as usize + data.len()).ceil();
+                            ..VA::from(data.as_ptr() as usize + data.len()).floor();
                         // println!("src_vpn_range {:x?}", src_vpn_range);
                         // println!("vpn {:x?}", va_range.vpn_range());
                         // XXX va_range.start 和 end 可能并非 4k 对齐的，导致多复制了一些数据
@@ -95,6 +110,31 @@ pub trait PageTable {
                                 .copy_from_slice(src_vpn.get_array::<usize>());
                             // println!("{:?}", src_vpn.get_array::<usize>());
                             area.data_frames.insert(vpn, dst_frame);
+                        }
+
+                        let mut vpn: VPN = VA::from(va_range.0.start.0 + data.len()).floor();
+                        let end_data_page =
+                            VA::from(data.as_ptr() as usize + data.len()).page_offset();
+                        if end_data_page != 0 {
+                            let src_vpn: VPN =
+                                VA::from(data.as_ptr() as usize + data.len()).floor();
+                            let dst_frame = frame_alloc().unwrap();
+                            self.map_one(vpn, dst_frame.ppn, area.map_perm);
+                            VPN::from(dst_frame.ppn).get_array()[..end_data_page / 8]
+                                .copy_from_slice(
+                                    &src_vpn.get_array::<usize>()[..end_data_page / 8],
+                                );
+                            VPN::from(dst_frame.ppn).get_array()[end_data_page / 8..].fill(0usize);
+                            area.data_frames.insert(vpn, dst_frame);
+
+                            vpn += 1;
+                        }
+
+                        for v in vpn..va_range.vpn_range().end {
+                            let dst_frame = frame_alloc().unwrap();
+                            self.map_one(v, dst_frame.ppn, area.map_perm);
+                            VPN::from(dst_frame.ppn).get_array().fill(0usize);
+                            area.data_frames.insert(v, dst_frame);
                         }
                     }
                     // 数据长度为 0，说明是 bss 段
@@ -111,6 +151,8 @@ pub trait PageTable {
                         for vpn in va_range.vpn_range() {
                             let dst_frame = frame_alloc().unwrap();
                             self.map_one(vpn, dst_frame.ppn, area.map_perm);
+                            // XXX 不清楚是否需要
+                            // VPN::from(dst_frame.ppn).get_array().fill(0usize);
                             area.data_frames.insert(vpn, dst_frame);
                         }
                     }
@@ -119,6 +161,15 @@ pub trait PageTable {
             MapType::Device => {
                 for vpn in va_range.vpn_range() {
                     self.map_one(vpn, PPN(vpn.0), area.map_perm);
+                }
+            }
+            MapType::KernelStack => {
+                debug_assert!(data.is_none());
+                for vpn in va_range.vpn_range() {
+                    let dst_frame = frame_alloc().unwrap();
+                    self.map_one(vpn, dst_frame.ppn, area.map_perm);
+                    unsafe { llvm_asm!("sfence.vma $0, x0" :: "r"(VA::from(vpn).0) :: "volatile") };
+                    area.data_frames.insert(vpn, dst_frame);
                 }
             }
         }

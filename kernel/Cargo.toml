@@ -8,19 +8,30 @@ version = "0.1.0"
 [dependencies]
 algorithm = { path = '../vendor/algorithm' }
 bitflags = { path = '../vendor/bitflags' }
-cstr_core = { path = '../vendor/cstr_core' }
-hashbrown = { path = '../vendor/hashbrown' } # 更快的 HashMap
-lazy_static = { path = '../vendor/lazy_static', features = ["spin_no_std"] }
-riscv = { path = "../vendor/riscv", features = ["inline-asm"] }
-spin = { path = '../vendor/spin' } # 自旋锁
-virtio-drivers = { path = '../vendor/virtio-drivers' }
-xmas-elf = { path = '../vendor/xmas-elf' } # 解析 elf
-
 core_io = { path = "../core_io", features = ["collections"] }
-fatfs = { path = "../fatfs" } # fat 32 文件系统
+cstr_core = { path = '../vendor/cstr_core' }
+fatfs = { path = "../fatfs" }                                                # fat 32 文件系统
+hashbrown = { path = '../vendor/hashbrown' }                                 # 更快的 HashMap
 k210-hal = { path = "../k210-hal" }
 k210-pac = { path = "../k210-pac" }
 k210-soc = { path = "../k210-soc" }
+lazy_static = { path = '../vendor/lazy_static', features = ["spin_no_std"] }
+riscv = { path = "../vendor/riscv", features = ["inline-asm"] }
+spin = { path = '../vendor/spin' }                                           # 自旋锁
+virtio-drivers = { path = '../vendor/virtio-drivers' }
+xmas-elf = { path = '../vendor/xmas-elf' }                                   # 解析 elf
+
+[dev-dependencies]
+test-macros = { path = "test-macros" }
+test-types = { path = "test-types" }
+
+[lib]
+name = "libkernel"
+test = true
+
+[[test]]
+harness = false
+name = "00_syscall_tests"
 
 [features]
 default = []

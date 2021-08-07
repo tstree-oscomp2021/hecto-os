@@ -6,6 +6,7 @@ use crate::{
 };
 
 bitflags! {
+    /// TODO 使用 tock_registers 的 register_bitfields
     /// 页表项中的 8 个标志位
     #[derive(Default)]
     pub struct PTEImpl: usize {
@@ -119,6 +120,9 @@ impl PageTable for PageTableImpl {
             }
             pte = &mut VPN::from(pte.ppn()).get_array()[idx];
         }
+        if !pte.is_valid() {
+            return None;
+        }
         Some(pte)
     }
 
@@ -140,10 +144,8 @@ impl PageTable for PageTableImpl {
         {
             // Sv39
             let satp = 8usize << 60 | self.root.ppn.0;
-            unsafe {
-                riscv::register::satp::write(satp);
-                asm!("sfence.vma");
-            }
+            riscv::register::satp::write(satp);
+            unsafe { asm!("sfence.vma") }
         }
     }
 }

@@ -8,13 +8,23 @@ resolver = "2"
 
 [profile.dev]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#dev
-codegen-units = 1
-lto = true
 opt-level = 3
 panic = "abort"
 
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#release
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+
+[profile.test]
+# https://doc.rust-lang.org/cargo/reference/profiles.html#test
+opt-level = 3
+panic = "abort"
+
+[profile.bench]
+# https://doc.rust-lang.org/cargo/reference/profiles.html#bench
 codegen-units = 1
 lto = true
 opt-level = 3

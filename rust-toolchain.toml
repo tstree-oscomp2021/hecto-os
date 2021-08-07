@@ -1,0 +1,5 @@
+[toolchain]
+channel = "nightly-2021-05-24"
+# channel = "nightly"
+components = ["rust-src", "llvm-tools-preview"]
+targets = ["riscv64imac-unknown-none-elf"]

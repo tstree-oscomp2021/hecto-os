@@ -22,6 +22,7 @@ lazy_static! {
 
 pub struct Vnode {
     /// XXX 暂时还没地方用到这个 field
+    #[allow(dead_code)]
     pub(super) fs: &'static (
         Option<FileSystem>,
         Option<Dir<'static, BufBlockDevice<BlockDeviceImpl>>>,

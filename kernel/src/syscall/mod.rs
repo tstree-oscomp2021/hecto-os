@@ -7,18 +7,18 @@ mod mm;
 mod process;
 
 use alloc::sync::Arc;
-use core::{sync::atomic::Ordering, time::Duration};
+use core::{intrinsics::transmute, sync::atomic::Ordering, time::Duration};
 
 use fatfs::{LinuxDirent64, Stat};
 use fs::*;
-use interface::Syscall;
 use misc::*;
 use mm::*;
 use process::*;
 
 use crate::{
     arch::{cpu, SyscallImpl},
-    process::*,
+    mm::flag::MapFlags,
+    process::{flag::CloneFlags, *},
 };
 
 /// 系统调用的总入口
@@ -41,6 +41,7 @@ pub fn syscall_handler() {
     context.sepc += 4;
     // UNSAFE! 如果为非法的 SyscallImpl，请勿试图直接 printf syscall_id
     let syscall_id: SyscallImpl = unsafe { core::mem::transmute(context.x[17]) };
+    debug!("<Syscall>::{:?}", syscall_id);
     // 参数，a0 ~ a5
     let args: &[usize] = &context.x[10..16];
 
@@ -56,6 +57,7 @@ pub fn syscall_handler() {
         SyscallImpl::getdents64 => sys_getdents64(args[0], args[1] as *mut LinuxDirent64, args[2]),
         SyscallImpl::read => sys_read(args[0], args[1] as *mut u8, args[2]),
         SyscallImpl::write => sys_write(args[0], args[1] as *const u8, args[2]),
+        SyscallImpl::writev => sys_writev(args[0], unsafe { transmute((args[1], args[2])) }),
         SyscallImpl::linkat => unimplemented!(),
         SyscallImpl::unlinkat => sys_unlinkat(args[0], args[1] as *const u8, args[2] as i32),
         SyscallImpl::mkdirat => sys_mkdirat(args[0], args[1] as *const u8, args[2]),
@@ -68,9 +70,12 @@ pub fn syscall_handler() {
             args[4] as *const u8,
         ),
         SyscallImpl::fstat => sys_fstat(args[0], args[1] as *mut Stat),
+        SyscallImpl::fstatat => {
+            sys_fstatat(args[0], args[1] as *const u8, args[2] as *mut Stat, args[3])
+        }
         // 进程管理相关 6 个
         SyscallImpl::clone => sys_clone(
-            args[0] as u64,
+            unsafe { CloneFlags::from_bits_unchecked(args[0] as u64) },
             args[1] as *mut usize,
             args[2] as *mut usize,
             args[3],
@@ -98,10 +103,13 @@ pub fn syscall_handler() {
             args[0].into(),
             args[1],
             unsafe { mm::PROT::from_bits_unchecked(args[2]) },
-            args[3],
-            args[4],
+            unsafe { MapFlags::from_bits_unchecked(args[3] as u32) },
+            args[4] as isize,
             args[5],
         ),
+        SyscallImpl::mprotect => sys_mprotect(args[0].into(), args[1], unsafe {
+            mm::PROT::from_bits_unchecked(args[2])
+        }),
         // 其他
         SyscallImpl::times => sys_times(args[0] as *mut usize),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
@@ -111,8 +119,19 @@ pub fn syscall_handler() {
         SyscallImpl::nanosleep => {
             sys_nanosleep(args[0] as *const Duration, args[1] as *mut Duration)
         }
-        // 特定于架构的
-        _ => syscall_id.arch_specific_syscall_handler(),
+
+        SyscallImpl::faccessat => 0,
+        SyscallImpl::geteuid => 0,
+        SyscallImpl::getuid => 0, // root 用户
+        SyscallImpl::getegid => 0,
+        SyscallImpl::getgid => 0,
+        SyscallImpl::set_tid_address => sys_set_tid_address(args[0] as *const u32),
+
+        _ => {
+            error!("unimplemented syscall <Syscall>::{:?}", syscall_id);
+            // 假装成功了
+            0
+        }
     } as usize;
 
     cur_thread.inner.critical_section(|inner| {
@@ -125,6 +144,11 @@ pub fn syscall_handler() {
         // 线程从内核控制路径离开时的时刻
         inner.cycles = cur_cycles;
     });
+
+    debug!(
+        "<Syscall>::{:?} end. ret = {:#x}",
+        syscall_id, context.x[10]
+    );
 }
 
 pub mod interface {

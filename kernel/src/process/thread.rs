@@ -4,17 +4,16 @@ use core::{mem::size_of, sync::atomic::Ordering};
 use core_io::Read;
 use xmas_elf::ElfFile;
 
-use super::*;
+use super::{flag::CloneFlags, *};
 use crate::{
     arch::{
-        PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch,
-        cpu::{self, get_cpu_id},
+        PTEImpl, RegisterImpl, TaskContextImpl, TrapFrameImpl, __switch, cpu,
         interface::{PageTable, Register, TaskContext, TrapFrame},
     },
-    board::{interface::Config, sbss_with_stack, ConfigImpl},
+    board::{interface::Config, ConfigImpl},
     fs::*,
     mm::*,
-    schedule::get_sched_cx,
+    schedule::SCHEDULE_THREAD,
     sync::SpinLock,
 };
 
@@ -26,7 +25,7 @@ pub struct TidAllocator {
 impl TidAllocator {
     pub const fn new() -> Self {
         TidAllocator {
-            current: 2, // XXX 0 和 1 被调度线程使用
+            current: 0,
             recycled: Vec::new(),
         }
     }
@@ -81,6 +80,12 @@ pub struct ThreadInner {
     pub status: ThreadStatus,
     /// 线程进入/离开内核的时刻
     pub cycles: u64,
+    /// see clone(2) set_tid_address(2)
+    pub set_child_tid: usize,
+    /// 如果不为 0，则该线程退出时会将该指针指向的值置 0，并唤醒该指针上的
+    /// futex。 该指针可被 set_tid_address(2) system call 修改。
+    /// see also clone(2), futex(2), gettid(2)
+    pub clear_child_tid: usize,
 }
 
 #[allow(unused)]
@@ -95,6 +100,32 @@ pub enum ThreadStatus {
 pub fn get_kernel_stack_range(tid: usize) -> VARange {
     let kernel_stack_top = ConfigImpl::KERNEL_STACK_TOP - tid * ConfigImpl::KERNEL_STACK_ALIGN_SIZE;
     VA(kernel_stack_top - ConfigImpl::KERNEL_STACK_SIZE)..VA(kernel_stack_top)
+}
+
+#[cfg(test)]
+mod tests {
+    use test_macros::kernel_test;
+
+    use super::*;
+    #[kernel_test]
+    fn test_get_kernel_stack_range() {
+        println!(
+            "test_get_kernel_stack_range 0 = {}",
+            VARangeOrd(get_kernel_stack_range(0))
+        );
+        println!(
+            "test_get_kernel_stack_range 1 = {}",
+            VARangeOrd(get_kernel_stack_range(1))
+        );
+        println!(
+            "test_get_kernel_stack_range 2 = {}",
+            VARangeOrd(get_kernel_stack_range(2))
+        );
+        println!(
+            "test_get_kernel_stack_range 3 = {}",
+            VARangeOrd(get_kernel_stack_range(3))
+        );
+    }
 }
 
 /// 线程指针大小
@@ -121,41 +152,6 @@ pub fn get_current_trapframe() -> &'static mut TrapFrameImpl {
 }
 
 impl Thread {
-    /// 初始化当前 CPU 的调度线程
-    pub fn init_sched_thread(entry: usize) -> Arc<Thread> {
-        // 1. 先映射内核栈（即 boot_stack）
-        let tid = get_cpu_id();
-        let kernel_stack_top = get_kernel_stack_range(tid).end;
-        let vpn = kernel_stack_top.floor() - 1; // 内核栈顶所在虚拟页面
-        let ppn: PPN = PPN::from(VA(sbss_with_stack as usize).floor()) + tid; // 物理页面
-        KERNEL_PROCESS
-            .inner
-            .lock()
-            .address_space
-            .page_table
-            .map_one(vpn, ppn, PTEImpl::READABLE | PTEImpl::WRITABLE);
-
-        // 2. 设置 TaskContext
-        let task_cx = (kernel_stack_top - THREAD_PTR_OFFSET - size_of::<TaskContextImpl>())
-            .get_mut::<TaskContextImpl>();
-        task_cx.set_ra(entry);
-
-        let new_thread = Arc::new(Self {
-            tid: Tid(tid),
-            process: KERNEL_PROCESS.clone(),
-            user_stack_top: VA(0), // 内核线程的用户栈顶为 0，表示没有用户栈
-            task_cx,
-            inner: SpinLock::new(ThreadInner {
-                status: ThreadStatus::Running,
-                cycles: 0,
-            }),
-        });
-        *(kernel_stack_top - THREAD_PTR_OFFSET).get_mut::<usize>() =
-            Arc::<Thread>::as_ptr(&new_thread) as usize;
-
-        new_thread
-    }
-
     /// 创建内核线程
     pub fn new_kernel(entry: usize, _args: Option<&[usize]>) -> Arc<Thread> {
         let tid = TID_ALLOCATOR.lock().alloc();
@@ -166,12 +162,12 @@ impl Thread {
             .inner
             .lock()
             .address_space
-            .insert_framed_area(
+            .insert_kernel_stack_area(
                 kernel_stack_range.clone(),
                 PTEImpl::READABLE | PTEImpl::WRITABLE,
                 None,
             );
-        // TrapFrame
+        // TaskContext
         let task_cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TaskContextImpl>();
         task_cx.set_ra(entry);
 
@@ -183,6 +179,8 @@ impl Thread {
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
                 cycles: 0,
+                set_child_tid: 0,
+                clear_child_tid: 0,
             }),
         });
         *(kernel_stack_range.end - THREAD_PTR_OFFSET).get_mut::<usize>() =
@@ -192,8 +190,13 @@ impl Thread {
     }
 
     /// 创建用户进程
-    pub fn new_thread(file_name: &str, args: Option<&[usize]>) -> Arc<Thread> {
-        println!("new_thread {}", file_name);
+    pub fn new_thread(file_name: &str, arguments: &[&str]) -> Arc<Thread> {
+        print!("new_thread: {}. args:", file_name);
+        for &arg in arguments {
+            print!(" {}", arg);
+        }
+        println!();
+
         let tid = TID_ALLOCATOR.lock().alloc();
 
         // 读取 elf 文件内容
@@ -203,31 +206,153 @@ impl Thread {
             .unwrap()
             .open_file(file_name)
             .unwrap();
-        let mut data: Vec<u8> = Vec::new();
+        trace!("文件 {} 大小为 {}", file_name, app.size().unwrap());
+        let mut data: Vec<u8> = Vec::with_capacity(app.size().unwrap() as usize + 1);
         app.read_to_end(&mut data).unwrap();
         let elf = ElfFile::new(data.as_slice()).unwrap();
+        let entry_point = elf.header.pt2.entry_point() as usize;
         // 创建进程
         let process = Process::from_elf(&elf, tid.0);
         // 分配用户栈
         let user_stack_top = process.alloc_user_stack();
         // 分配内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
-        // println!("内核栈 {:#x?}", kernel_stack_range);
+        // println!("内核栈 {}", VARangeOrd(kernel_stack_range.clone()));
         KERNEL_PROCESS
             .inner
             .lock()
             .address_space
-            .insert_framed_area(
+            .insert_kernel_stack_area(
                 kernel_stack_range.clone(),
                 PTEImpl::READABLE | PTEImpl::WRITABLE,
                 None,
             );
+        let mut user_sp = user_stack_top - 8;
+
+        // http://articles.manugarg.com/aboutelfauxiliaryvectors.html
+        // https://www.cnblogs.com/likaiming/p/11193697.html
+        let user_sp_offset = VA::from(
+            process
+                .inner
+                .lock()
+                .address_space
+                .page_table
+                .translate_va(user_sp - 16)
+                .unwrap()
+                + 16,
+        ) - user_sp;
+
+        // environment ASCIIZ str
+        let environments = &[
+            "SHELL=/bin/bash",
+            "PWD=/",
+            "HOME=/",
+            "LANG=C.UTF-8",
+            "USER=root",
+            "PATH=/",
+            "OLDPWD=/root",
+        ];
+        let mut envp: Vec<usize> = Vec::with_capacity(environments.len());
+        for i in 0..environments.len() {
+            user_sp -= environments[i].len() + 1;
+            envp.push(user_sp.into());
+            let mut p = user_sp;
+            // 复制字符串
+            for &c in environments[i].as_bytes() {
+                (p + user_sp_offset).write(c);
+                p += 1;
+            }
+            (p + user_sp_offset).write(b'\0'); // 字符串末尾
+        }
+
+        // argument ASCIIZ strings
+        let mut argv: Vec<usize> = Vec::with_capacity(arguments.len());
+        for i in 0..arguments.len() {
+            user_sp -= arguments[i].len() + 1;
+            argv.push(user_sp.into());
+            let mut p = user_sp;
+            // 复制字符串
+            for &c in arguments[i].as_bytes() {
+                (p + user_sp_offset).write(c);
+                p += 1;
+            }
+            (p + user_sp_offset).write(b'\0'); // 字符串末尾
+        }
+
+        // rand bytes
+        user_sp -= 16;
+        user_sp -= user_sp.0 % 16;
+        let random_bytes = user_sp.0;
+        (user_sp + user_sp_offset).write((0x1234_5678_1234_5678usize, 0x1234_5678_1234_5678usize));
+
+        // auvx
+        // https://lwn.net/Articles/519085/
+        // https://lwn.net/Articles/631631/
+        // http://articles.manugarg.com/aboutelfauxiliaryvectors.html
+        // https://github.com/torvalds/linux/blob/v3.19/include/uapi/linux/auxvec.h
+        // https://github.com/torvalds/linux/blob/v3.19/arch/ia64/include/uapi/asm/auxvec.h
+        let ph_head_addr = elf.find_section_by_name(".text").unwrap().address() as usize
+            - elf.header.pt2.ph_entry_size() as usize * elf.header.pt2.ph_count() as usize;
+        let auvx = [
+            (3, ph_head_addr),
+            (4, elf.header.pt2.ph_entry_size() as usize),
+            (5, elf.header.pt2.ph_count() as usize),
+            (6, 4096),
+            (7, 0),
+            (8, 0),
+            (9, 65856),
+            (11, 0),
+            (12, 0),
+            (13, 0),
+            (14, 0),
+            (16, 4397),
+            (17, 100),
+            (23, 0),
+            (25, random_bytes),
+            (31, argv[0]),
+            (40, 0),
+            (41, 0),
+            (42, 0),
+            (43, 0),
+            (44, 0),
+            (45, 0),
+            (0, 0),
+        ];
+
+        // auxv[] (Elf64_auxv_t)
+        user_sp -= auvx.len() * size_of::<(usize, usize)>();
+        let auxv_base = user_sp;
+        for i in 0..auvx.len() {
+            // println!("auvx[{}] =({}, {:#x})", i, auvx[i].0, auvx[i].1);
+            (auxv_base + user_sp_offset + size_of::<(usize, usize)>() * i).write(auvx[i]);
+        }
+
+        // envp[] (pointer)
+        (user_sp + user_sp_offset - size_of::<usize>()).write(0usize);
+        user_sp -= (environments.len() + 1) * size_of::<usize>();
+        let envp_base = user_sp;
+        for i in 0..environments.len() {
+            (envp_base + user_sp_offset + size_of::<usize>() * i).write(envp[i]);
+        }
+
+        // argv[] (pointer)
+        (user_sp + user_sp_offset - size_of::<usize>()).write(0usize); // argv[argc] = null
+        user_sp -= (arguments.len() + 1) * size_of::<usize>();
+        let argv_base = user_sp;
+        for i in 0..arguments.len() {
+            (argv_base + user_sp_offset + size_of::<usize>() * i).write(argv[i]);
+        }
+
+        // argc = number of args
+        user_sp -= size_of::<usize>();
+        (user_sp + user_sp_offset).write(arguments.len());
+
         // TrapFrame
         let cx = (kernel_stack_range.end - TRAP_FRAME_OFFSET).get_mut::<TrapFrameImpl>();
         cx.init(
-            user_stack_top.0 - size_of::<usize>(),
-            elf.header.pt2.entry_point() as usize,
-            args,
+            user_sp.0,
+            entry_point,
+            Some(&[arguments.len(), argv_base.0, envp_base.0, auxv_base.0]),
             true,
         );
         // TaskContextImpl
@@ -244,6 +369,8 @@ impl Thread {
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
                 cycles: 0,
+                set_child_tid: 0,
+                clear_child_tid: 0,
             }),
         });
 
@@ -254,7 +381,7 @@ impl Thread {
     }
 
     /// fork 用户进程
-    pub fn fork(&self) -> Arc<Thread> {
+    pub fn fork(&self, flags: CloneFlags, child_tid: *mut usize) -> Arc<Thread> {
         let tid = TID_ALLOCATOR.lock().alloc();
         let process = self.process.fork(tid.0);
         get_current_thread()
@@ -269,7 +396,7 @@ impl Thread {
             .inner
             .lock()
             .address_space
-            .insert_framed_area(
+            .insert_kernel_stack_area(
                 kernel_stack_range.clone(),
                 PTEImpl::READABLE | PTEImpl::WRITABLE,
                 None,
@@ -284,6 +411,30 @@ impl Thread {
                 .get_mut::<TaskContextImpl>();
         task_cx.set_ra(crate::arch::__restore as usize);
 
+        // println!("fork flags = {:?}", flags);
+        let mut set_child_tid = 0usize;
+        let mut clear_child_tid = 0usize;
+        if flags.contains(CloneFlags::CLONE_CHILD_CLEARTID) {
+            clear_child_tid = child_tid as usize;
+        }
+        if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
+            set_child_tid = child_tid as usize;
+            // XXX 1. 因为是高地址访存错误应该不会发生
+            // 2. 子进程和父进程此时还是共享物理页面，这样会影响到父进程？
+            let va: VA = process
+                .inner
+                .lock()
+                .address_space
+                .page_table
+                .translate_va(VA(child_tid as usize))
+                .unwrap()
+                .into();
+            va.write(tid.0);
+        }
+        if flags.contains(CloneFlags::CLONE_THREAD) {
+            unimplemented!()
+        }
+
         let new_thread = Arc::new(Self {
             tid,
             process,
@@ -292,6 +443,8 @@ impl Thread {
             inner: SpinLock::new(ThreadInner {
                 status: ThreadStatus::Ready,
                 cycles: 0,
+                set_child_tid,
+                clear_child_tid,
             }),
         });
 
@@ -325,22 +478,7 @@ impl Thread {
     }
 
     pub fn yield_to_sched(&mut self) {
-        self.inner.critical_section(|inner| {
-            let cur_cycles = cpu::get_cycles();
-            self.process
-                .times
-                .tms_stime
-                .fetch_add(cur_cycles - inner.cycles, Ordering::SeqCst);
-            // 线程从内核控制路径离开时的时刻
-            inner.cycles = cur_cycles;
-        });
-        unsafe {
-            __switch(core::mem::transmute(&mut self.task_cx), *get_sched_cx());
-        }
-        self.inner.critical_section(|inner| {
-            // 线程进入内核控制路径的时刻
-            inner.cycles = cpu::get_cycles();
-        });
+        self.switch_to(unsafe { &*SCHEDULE_THREAD });
     }
 
     /// 激活线程页表

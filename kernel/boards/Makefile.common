@@ -9,7 +9,8 @@ TARGET_DIR := $(ROOT_DIR)/target/$(TARGET)
 
 # Building
 MODE		?=	debug
-KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/kernel
+BIN			?=  kernel
+KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/$(BIN)
 KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
 
@@ -39,11 +40,18 @@ SMP 		?= 	2
 QEMU		:=	qemu-system-riscv64
 QEMU_OPTS	:=	-machine virt \
 				-nographic \
-				-smp $(SMP) \
 				-bios $(BOOTLOADER) \
 				-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) \
 				-drive file=$(TEST_IMG),if=none,format=raw,id=x0 \
 				-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+#				-smp $(SMP) \
+
+QEMU_TEST_OPTS	:=	-machine virt \
+				-nographic \
+				-bios $(BOOTLOADER) \
+				-drive file=$(TEST_IMG),if=none,format=raw,id=x0 \
+				-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+#				-smp $(SMP) \
 
 # GDB
 GDB			:=	riscv64-elf-gdb
@@ -59,7 +67,7 @@ endef
 
 $(KERNEL_ELF):
 	$(call colorecho, "Compiling kernel - $(BOARD)")
-	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline
+	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline --bin $(BIN)
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
@@ -84,3 +92,42 @@ readelf:
 	@$(READELF) --headers $(KERNEL_ELF)
 
 .PHONY: $(KERNEL_ELF) $(KERNEL_BIN) build check clean disasm readelf
+
+##--------------------------------------------------------------------------------------------------
+## Testing targets
+##--------------------------------------------------------------------------------------------------
+.PHONY: test_unit test_integration
+
+##--------------------------------------------------------------------------------------------------
+## Helpers for unit and integration test targets
+##--------------------------------------------------------------------------------------------------
+define KERNEL_TEST_RUNNER
+#!/usr/bin/env bash
+TEST_ELF=$(ROOT_DIR)/$$(echo $$1 | sed -e 's/.*target/target/g')
+TEST_BINARY=$(ROOT_DIR)/$$(echo $$1.img | sed -e 's/.*target/target/g')
+$(OBJCOPY) $$TEST_ELF --strip-all -O binary $$TEST_BINARY
+$(QEMU) $(QEMU_TEST_OPTS) -device loader,file=$$TEST_BINARY,addr=$(KERNEL_ENTRY_PA)
+endef
+export KERNEL_TEST_RUNNER
+
+define test_prepare
+    @mkdir -p $(ROOT_DIR)/target
+    @echo "$$KERNEL_TEST_RUNNER" > $(ROOT_DIR)/target/kernel_test_runner.sh
+    @chmod +x $(ROOT_DIR)/target/kernel_test_runner.sh
+endef
+
+##--------------------------------------------------------------------------------------------------
+## Run unit test(s)
+##--------------------------------------------------------------------------------------------------
+test_unit:
+	$(call test_prepare)
+	@RUSTFLAGS="$(RUSTFLAGS)" cargo test $(BUILD_ARGS) --offline --lib
+
+##--------------------------------------------------------------------------------------------------
+## Run integration test(s)
+##--------------------------------------------------------------------------------------------------
+
+TEST	?=
+test_integration:
+	$(call test_prepare)
+	RUSTFLAGS="$(RUSTFLAGS)" cargo test $(BUILD_ARGS) --offline --test $(TEST)

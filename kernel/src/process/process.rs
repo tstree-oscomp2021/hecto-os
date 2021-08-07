@@ -33,8 +33,10 @@ lazy_static! {
                 address_space: AddressSpace {
                     page_table: crate::mm::page_table::kernel_page_table(),
                     areas: BTreeMap::<VARangeOrd, MapArea>::new(),
+                    data_segment_end: VA(1),
+                    data_segment_max: VA(1),
                 },
-                fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
+                fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone()), Some(STDOUT.clone())],
                 parent: Weak::new(),
                 child: Vec::new(),
                 child_exited: Vec::new(),
@@ -87,7 +89,11 @@ impl Process {
             inner: SpinLock::new(ProcessInner {
                 cwd: String::from("/"),
                 address_space: AddressSpace::from_elf(file),
-                fd_table: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
+                fd_table: vec![
+                    Some(STDIN.clone()),
+                    Some(STDOUT.clone()),
+                    Some(STDOUT.clone()),
+                ],
                 parent: Arc::downgrade(&get_current_thread().process),
                 child: Vec::new(),
                 child_exited: Vec::new(),

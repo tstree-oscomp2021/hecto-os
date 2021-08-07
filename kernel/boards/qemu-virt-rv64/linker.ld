@@ -25,7 +25,7 @@ SECTIONS
     erodata = .;
     sdata = .;
     .data : {
-        *(.data.page_table)
+        PROVIDE( __global_pointer$ = . + 0x800 );
         *(.data .data.*)
         *(.sdata .sdata.*)
     }

@@ -4,7 +4,12 @@ use riscv::register::{
 };
 
 use super::{cpu, timer};
-use crate::{get_current_thread, syscall::syscall_handler, trap::handle_pagefault};
+use crate::{
+    arch::{interface::Register, RegisterImpl},
+    get_current_thread,
+    syscall::syscall_handler,
+    trap::handle_pagefault,
+};
 
 global_asm!(include_str!("./trap.asm"));
 extern "C" {
@@ -34,7 +39,7 @@ impl crate::arch::interface::Trap for TrapImpl {
 
 /// 中断处理入口
 #[no_mangle]
-pub fn handle_trap(scause: Scause, stval: usize) {
+pub fn handle_trap(scause: Scause, stval: usize, _spp: usize) {
     match scause.cause() {
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
@@ -43,6 +48,11 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         }
         _ => {}
     }
+    // if spp == 0 {
+    //     debug!("来自用户态的 trap");
+    // } else {
+    //     debug!("来自内核态的 trap");
+    // }
 
     unsafe {
         // 开启 SIE（不是 sie 寄存器），全局中断使能，允许内核态被中断打断
@@ -60,12 +70,13 @@ pub fn handle_trap(scause: Scause, stval: usize) {
         | Trap::Exception(Exception::InstructionPageFault)
         | Trap::Exception(Exception::LoadFault)
         | Trap::Exception(Exception::StoreFault) => {
-            // println!(
-            //     "cause: {:?}, stval: {:x}, sepc: {:x}",
-            //     scause.cause(),
-            //     stval,
-            //     sepc::read()
-            // );
+            warn!(
+                "cause: {:?}, stval: {:x}, sepc: {:x}, sp = {:#x}",
+                scause.cause(),
+                stval,
+                sepc::read(),
+                RegisterImpl::sp()
+            );
             handle_pagefault(stval);
         }
         Trap::Exception(Exception::InstructionFault) => {
@@ -99,6 +110,8 @@ pub fn handle_trap(scause: Scause, stval: usize) {
 }
 
 // 用户线程第一次执行，经此函数进入 __restore
+// #[no_mangle]
+// #[inline(never)]
 pub fn ret_to_restore() {
     get_current_thread().inner.critical_section(|inner| {
         // 线程第一次进入用户态的时刻

@@ -1,25 +1,26 @@
-use core::{fmt::Debug, iter::Step, mem::size_of};
+use core::{fmt::Display, iter::Step, mem::size_of};
 
 use crate::board::{interface::Config, ConfigImpl};
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 // #[rustc_layout_scalar_valid_range_start(1)]
 // #[rustc_nonnull_optimization_guaranteed]
 pub struct PA(pub usize);
 
+/// TODO impl Deref 和 DerefMut
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 // #[rustc_layout_scalar_valid_range_start(1)]
 // #[rustc_nonnull_optimization_guaranteed]
 pub struct VA(pub usize);
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PPN(pub usize);
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VPN(pub usize);
 
 /// 从指针转换为虚拟地址
@@ -137,6 +138,10 @@ impl VA {
 
     pub fn as_mut<T>(&self) -> &'static mut T {
         unsafe { &mut *(self.0 as *mut T) }
+    }
+
+    pub fn write<T>(&self, src: T) {
+        unsafe { *(self.0 as *mut T) = src };
     }
 
     pub fn as_ptr<T>(&self) -> *const T {
@@ -296,6 +301,12 @@ impl PartialEq for VARangeOrd {
     }
 }
 
+impl Display for VARangeOrd {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "[{}, {})", self.0.start, self.0.end)
+    }
+}
+
 #[macro_export]
 macro_rules! round_down {
     ($value: expr, $boundary: expr) => {
@@ -308,4 +319,17 @@ macro_rules! round_up {
     ($value: expr, $boundary: expr) => {
         ($value as usize + $boundary - 1 & !($boundary - 1))
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use test_macros::kernel_test;
+
+    use super::*;
+
+    #[kernel_test]
+    fn test_display() {
+        println!("{}", VA(0x12345));
+        println!("{}", VARangeOrd(VA(0x12345)..VA(0x12345)));
+    }
 }
