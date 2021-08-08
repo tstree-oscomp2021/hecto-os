@@ -10,7 +10,12 @@ TARGET_DIR := $(ROOT_DIR)/target/$(TARGET)
 # Building
 MODE		?=	debug
 BIN			?=  kernel
-KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/$(BIN)
+EXAMPLE		?=
+ifdef EXAMPLE
+    KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/examples/$(EXAMPLE)
+else
+    KERNEL_ELF	:=	$(TARGET_DIR)/$(MODE)/$(BIN)
+endif
 KERNEL_BIN	:=	$(KERNEL_ELF).bin
 TEST_IMG	:=	$(ROOT_DIR)/res/testsuits.img
 
@@ -67,7 +72,11 @@ endef
 
 $(KERNEL_ELF):
 	$(call colorecho, "Compiling kernel - $(BOARD)")
+ifdef EXAMPLE
+	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline --example $(EXAMPLE)
+else
 	RUSTFLAGS="$(RUSTFLAGS)" cargo build $(BUILD_ARGS) --offline --bin $(BIN)
+endif
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@

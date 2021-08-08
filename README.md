@@ -1,8 +1,8 @@
 ```bash
 cd kernel/boards/qemu-virt-rv64
 
-# 运行 busybox_tests，LOG 等级默认为 debug
-make run BIN=busybox_tests
+# 运行示例程序 busybox_tests，LOG 等级默认为 debug
+make run EXAMPLE=busybox_tests LOG=none
 
 # 单元测试
 make test_unit
