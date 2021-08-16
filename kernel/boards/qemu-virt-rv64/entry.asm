@@ -5,6 +5,7 @@
 _start:
     li      t0, 0x2000
     csrs    sstatus, t0             # 开启 FPU
+    csrw    sscratch, x0
 
     li      t1, 0xffffffc000000000  # 虚拟地址的偏移量
 

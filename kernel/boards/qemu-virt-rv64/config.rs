@@ -12,7 +12,7 @@ impl Config<1> for ConfigImpl {
     /// 内核栈大小，最大为 1 << KERNEL_STACK_SIZE_BITS - PAGE_SIZE
     const KERNEL_STACK_SIZE: usize = 1 << 13;
     /// 内核堆大小
-    const KERNEL_HEAP_SIZE: usize = 0x20_0000;
+    const KERNEL_HEAP_SIZE: usize = 0x30_0000;
     /// 内存起始地址
     const MEMORY_START: usize = 0xFFFF_FFC0_8000_0000;
     /// 内存大小

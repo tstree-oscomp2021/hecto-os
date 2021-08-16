@@ -56,6 +56,7 @@ pub use core_io as io;
 pub use fs::*;
 pub use mm::*;
 pub use process::*;
+use riscv::register::sstatus::{self, SPP};
 
 use crate::{
     arch::{
@@ -82,11 +83,12 @@ pub fn kernel_init(hart_id: usize, dtb_pa: PA) {
 }
 
 pub fn switch_to_schedule(args: &[&[&str]]) -> ! {
-    let sched_thread = Thread::new_kernel(schedule as usize, None);
+    let sched_thread = Thread::new_kernel(schedule as usize);
     unsafe {
         SCHEDULE_THREAD = core::mem::transmute(sched_thread.as_ref());
         let mut cur_task_cx: *const TaskContextImpl = core::mem::transmute(1usize);
         llvm_asm!("" :: "{a2}" (args.as_ptr()), "{a3}" (args.len()): "memory": "volatile");
+        debug_assert_eq!(sstatus::read().spp(), SPP::User);
         __switch(&mut cur_task_cx, *get_sched_cx());
     }
 
@@ -109,6 +111,7 @@ pub fn schedule(_a0: usize, _a1: usize, args: &[&[&str]]) {
                     next_thread.activate();
                     // next_thread.inner.lock().status = ThreadStatus::Running;
                     unsafe {
+                        debug_assert_eq!(sstatus::read().spp(), SPP::User);
                         __switch(get_sched_cx(), next_thread.task_cx);
                     }
                 }

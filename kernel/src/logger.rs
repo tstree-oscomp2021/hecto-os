@@ -1,8 +1,9 @@
 use core::{fmt::Write, panic::PanicInfo};
 
 use crate::{
-    arch::{cpu::shutdown, interface::Console, ConsoleImpl},
+    arch::{interface::Console, ConsoleImpl},
     backtrace::backtrace,
+    sync::SpinLock,
 };
 
 pub mod interface {
@@ -13,9 +14,13 @@ pub mod interface {
     }
 }
 
+static CONSOLE_LOCK: SpinLock<()> = SpinLock::new(());
+
 pub fn _print(args: core::fmt::Arguments) {
-    #[allow(const_item_mutation)]
-    ConsoleImpl::CONSOLE_INSTANCE.write_fmt(args).unwrap();
+    CONSOLE_LOCK.critical_section(|_| {
+        #[allow(const_item_mutation)]
+        ConsoleImpl::CONSOLE_INSTANCE.write_fmt(args).unwrap();
+    });
 }
 
 #[macro_export]
@@ -155,5 +160,11 @@ fn panic(info: &PanicInfo) -> ! {
     }
     backtrace();
 
-    unsafe { shutdown() }
+    #[cfg(feature = "qemu")]
+    loop {}
+
+    #[cfg(not(feature = "qemu"))]
+    unsafe {
+        crate::arch::cpu::shutdown()
+    }
 }

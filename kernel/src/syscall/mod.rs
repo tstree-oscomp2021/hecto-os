@@ -6,9 +6,10 @@ mod misc;
 mod mm;
 mod process;
 
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec::Vec};
 use core::{intrinsics::transmute, sync::atomic::Ordering, time::Duration};
 
+use cstr_core::{c_char, CStr};
 use fatfs::{LinuxDirent64, Stat};
 use fs::*;
 use misc::*;
@@ -16,7 +17,8 @@ use mm::*;
 use process::*;
 
 use crate::{
-    arch::{cpu, SyscallImpl},
+    arch::{cpu, SyscallImpl, TaskContextImpl, __switch},
+    fs::flag::{FcntlArg, FcntlCmd},
     mm::flag::MapFlags,
     process::{flag::CloneFlags, *},
 };
@@ -46,7 +48,7 @@ pub fn syscall_handler() {
     let args: &[usize] = &context.x[10..16];
 
     context.x[10] = match syscall_id {
-        // 文件系统相关 16 个
+        // 文件系统相关 20 个
         SyscallImpl::getcwd => sys_getcwd(args[0] as *mut u8, args[1]),
         SyscallImpl::pipe2 => sys_pipe2(args[0] as *mut i32, args[1] as i32),
         SyscallImpl::dup => sys_dup(args[0]),
@@ -73,7 +75,11 @@ pub fn syscall_handler() {
         SyscallImpl::fstatat => {
             sys_fstatat(args[0], args[1] as *const u8, args[2] as *mut Stat, args[3])
         }
-        // 进程管理相关 6 个
+        SyscallImpl::fcntl => sys_fcntl(args[0], unsafe { transmute(args[1]) }, unsafe {
+            FcntlArg::from_bits_unchecked(args[2])
+        }),
+        SyscallImpl::sendfile => sys_sendfile(args[0], args[1], args[2], args[3]),
+        // 进程管理相关 7 个
         SyscallImpl::clone => sys_clone(
             unsafe { CloneFlags::from_bits_unchecked(args[0] as u64) },
             args[1] as *mut usize,
@@ -96,7 +102,7 @@ pub fn syscall_handler() {
         SyscallImpl::getppid => sys_getppid(),
         SyscallImpl::getpid => sys_getpid(),
         SyscallImpl::sched_yield => sys_sched_yield(),
-        // 内存管理相关 8 个
+        // 内存管理相关 4 个
         SyscallImpl::brk => sys_brk(args[0].into()),
         SyscallImpl::munmap => sys_munmap(args[0].into(), args[1]),
         SyscallImpl::mmap => sys_mmap(
@@ -110,7 +116,7 @@ pub fn syscall_handler() {
         SyscallImpl::mprotect => sys_mprotect(args[0].into(), args[1], unsafe {
             mm::PROT::from_bits_unchecked(args[2])
         }),
-        // 其他
+        // 其他 10 个
         SyscallImpl::times => sys_times(args[0] as *mut usize),
         SyscallImpl::uname => sys_uname(args[0] as *mut UTSName),
         SyscallImpl::gettimeofday => {

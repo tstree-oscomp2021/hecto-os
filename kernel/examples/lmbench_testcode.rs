@@ -12,8 +12,5 @@ pub fn rust_main(hart_id: usize, dtb_pa: PA) -> ! {
 
 #[rustfmt::skip]
 const ARGS: &[&[&str]] = &[
-    // &["busybox", "ash", "-c", "exit"],
-    // &["busybox", "echo", "hello", "world"],
-    // &["busybox", "ash", "-c", "echo 123"],
-    &["busybox", "ash", "busybox_testcode.sh"],
+    &["busybox", "ash", "lmbench_testcode.sh"],
 ];

@@ -7,6 +7,7 @@ use lazy_static::*;
 use crate::drivers::BufBlockDevice;
 
 pub mod file;
+pub mod flag;
 pub mod pipe;
 pub mod vnode;
 

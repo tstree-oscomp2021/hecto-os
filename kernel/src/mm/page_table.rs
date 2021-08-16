@@ -102,7 +102,7 @@ pub trait PageTable {
                         // println!("src_vpn_range {:x?}", src_vpn_range);
                         // println!("vpn {:x?}", va_range.vpn_range());
                         // XXX va_range.start 和 end 可能并非 4k 对齐的，导致多复制了一些数据
-                        for (vpn, src_vpn) in va_range.vpn_range().zip(src_vpn_range) {
+                        for (vpn, src_vpn) in va_range.vpn_range().zip(src_vpn_range.clone()) {
                             let dst_frame = frame_alloc().unwrap();
                             self.map_one(vpn, dst_frame.ppn, area.map_perm);
                             VPN::from(dst_frame.ppn)
@@ -116,8 +116,7 @@ pub trait PageTable {
                         let end_data_page =
                             VA::from(data.as_ptr() as usize + data.len()).page_offset();
                         if end_data_page != 0 {
-                            let src_vpn: VPN =
-                                VA::from(data.as_ptr() as usize + data.len()).floor();
+                            let src_vpn: VPN = src_vpn_range.end;
                             let dst_frame = frame_alloc().unwrap();
                             self.map_one(vpn, dst_frame.ppn, area.map_perm);
                             VPN::from(dst_frame.ppn).get_array()[..end_data_page / 8]
@@ -146,7 +145,8 @@ pub trait PageTable {
                             area.data_frames.insert(vpn, dst_frame);
                         }
                     }
-                    // 内核栈 / 用户栈 / mmap
+                    // 用户栈 / mmap
+                    // XXX 对于 mmap 区域，是不是也需要进行 sfence.vma
                     _ => {
                         for vpn in va_range.vpn_range() {
                             let dst_frame = frame_alloc().unwrap();

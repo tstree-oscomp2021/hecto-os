@@ -3,13 +3,13 @@ use core::{intrinsics::transmute, mem::size_of, ptr::null_mut};
 use crate::VA;
 
 /// 一段连续的 Pages
-pub struct PageHead {
+struct PageHead {
     /// 下一个 free Page 区域
     next: *mut PageHead,
     /// pages 数量
     npages: usize,
     /// 剩余的部分
-    _padding: [u8; 4094 - size_of::<*mut PageHead>() - size_of::<usize>()],
+    _padding: [u8; 4096 - size_of::<*mut PageHead>() - size_of::<usize>()],
 }
 
 impl PageHead {

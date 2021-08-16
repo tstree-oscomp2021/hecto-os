@@ -76,6 +76,7 @@ impl Drop for FileDescriptor {
     fn drop(&mut self) {
         if alloc::sync::Arc::<Vnode>::strong_count(&self.vnode) == 2 {
             VNODE_HASHSET.critical_section(|hs| hs.remove(&*self.vnode.full_path));
+            debug_assert!(alloc::sync::Arc::<Vnode>::strong_count(&self.vnode) == 1);
         }
     }
 }
@@ -87,9 +88,11 @@ impl Read for FileDescriptor {
                 .inode
                 .seek(SeekFrom::Start(self.pos))
                 .unwrap();
-            unsafe { Arc::get_mut_unchecked(&mut self.vnode) }
+            let n = unsafe { Arc::get_mut_unchecked(&mut self.vnode) }
                 .inode
-                .read(buf)
+                .read(buf)?;
+            self.pos += n as u64;
+            Ok(n)
         } else {
             Err(Error::from(ErrorKind::PermissionDenied))
         }
@@ -102,9 +105,11 @@ impl Write for FileDescriptor {
                 .inode
                 .seek(SeekFrom::Start(self.pos))
                 .unwrap();
-            unsafe { Arc::get_mut_unchecked(&mut self.vnode) }
+            let n = unsafe { Arc::get_mut_unchecked(&mut self.vnode) }
                 .inode
-                .write(buf)
+                .write(buf)?;
+            self.pos += n as u64;
+            Ok(n)
         } else {
             Err(Error::from(ErrorKind::PermissionDenied))
         }

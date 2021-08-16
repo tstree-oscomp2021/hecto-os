@@ -147,6 +147,7 @@ impl SlabAllocator {
             let npages = round_up!(size, PAGE_SIZE) / PAGE_SIZE;
             chunk = page_alloc(npages).as_mut_ptr();
             if chunk.is_null() {
+                trace!("alloc size over limit and have no enough pages");
                 return null_mut();
             }
             // 在 memusage 数组里记录页面被使用的信息
@@ -261,7 +262,7 @@ impl SlabAllocator {
             }
             PageUsage::Page(size) => {
                 page_free(chunk.into(), *size as usize);
-                *size = 0;
+                *kup = PageUsage::Free;
             }
             #[allow(unreachable_patterns)]
             _ => {

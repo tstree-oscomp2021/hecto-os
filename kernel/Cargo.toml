@@ -39,7 +39,8 @@ default = []
 
 # board
 k210 = []
-qemu-virt-rv64 = []
+qemu = []
+qemu-virt-rv64 = ["qemu"]
 
 # log level
 debug = []

@@ -54,6 +54,56 @@ pub(super) fn sys_read(fd: usize, buf: *mut u8, count: usize) -> isize {
     -1
 }
 
+// ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
+pub(super) fn sys_sendfile(out_fd: usize, in_fd: usize, offset: usize, count: usize) -> isize {
+    debug!(
+        "sys_sendfile(out_fd={:#x}, in_fd={:#x}, offset={:#x}, count={});",
+        out_fd, in_fd, offset, count
+    );
+    assert_eq!(offset, 0);
+    let process_inner = get_current_thread().process.inner.lock();
+    if let Some(out_fd) = process_inner.get_fd(out_fd).unwrap() {
+        if let Some(in_fd) = process_inner.get_fd(in_fd).unwrap() {
+            debug!("out_fd.vnode.full_path {}", out_fd.vnode.full_path);
+            debug!("in_fd.vnode.full_path {}", in_fd.vnode.full_path);
+
+            let app = FILE_SYSTEM_TABLE[0]
+                .1
+                .as_ref()
+                .unwrap()
+                .open_file(&in_fd.vnode.full_path)
+                .unwrap();
+            trace!(
+                "文件 {} 大小为 {}",
+                in_fd.vnode.full_path,
+                app.size().unwrap()
+            );
+
+            const BLK_SIZE: usize = 512;
+            let mut buffer = [0u8; BLK_SIZE];
+            let mut remain = count;
+            while remain != 0 {
+                let read_count = if remain >= BLK_SIZE { BLK_SIZE } else { remain };
+                if let Ok(m) =
+                    unsafe { Arc::get_mut_unchecked(in_fd) }.read(&mut buffer[..read_count])
+                {
+                    if let Ok(n) = unsafe { Arc::get_mut_unchecked(out_fd) }.write(&buffer[..m]) {
+                        remain -= n;
+                        println!("m = {}, n = {}", m, n);
+                        // println!("remain = {}", remain);
+                        if m != BLK_SIZE && (m != read_count || m != n) {
+                            break;
+                        }
+                    }
+                }
+            }
+            return (count - remain) as isize;
+        }
+    }
+
+    -1
+}
+
 pub(super) fn sys_openat(dirfd: usize, pathname: *const u8, flags: isize, _mode: usize) -> isize {
     let full_path = normalize_path(dirfd, pathname);
 
@@ -75,6 +125,7 @@ pub(super) fn sys_openat(dirfd: usize, pathname: *const u8, flags: isize, _mode:
 }
 
 pub(super) fn sys_close(fd: usize) -> isize {
+    debug!("sys_close(fd={:#x});", fd);
     *get_current_thread()
         .process
         .inner
@@ -121,6 +172,7 @@ pub(super) fn sys_chdir(path: *const u8) -> isize {
 }
 
 pub(super) fn sys_dup(oldfd: usize) -> isize {
+    debug!("sys_dup(oldfd={:#x});", oldfd);
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(oldfd) = process_inner.fd_table[oldfd].as_ref() {
         let newf = Some(oldfd.clone());
@@ -134,13 +186,20 @@ pub(super) fn sys_dup(oldfd: usize) -> isize {
 }
 
 pub(super) fn sys_dup3(oldfd: usize, newfd: usize, _flags: usize) -> isize {
+    debug!(
+        "sys_dup3(fd={:#x}, newfd={:#x}, flags={:?});",
+        oldfd, newfd, _flags
+    );
     let mut process_inner = get_current_thread().process.inner.lock();
     if let Some(oldf) = process_inner.fd_table[oldfd].as_ref() {
+        println!("oldf.vnode.full_path = {}", oldf.vnode.full_path);
+
         let newf = Some(oldf.clone());
         if newfd < ProcessInner::MAX_FD {
             if newfd >= process_inner.fd_table.len() {
                 process_inner.fd_table.resize(newfd + 1, None);
             }
+            // XXX newfd 可能已经存在，最好还是检查一下
             process_inner.fd_table[newfd] = newf;
             return newfd as isize;
         }
@@ -172,6 +231,10 @@ pub(super) fn sys_pipe2(pipefd: *mut i32, _flags: i32) -> isize {
         *pipefd.offset(0) = read_fd;
         *pipefd.offset(1) = write_fd;
     }
+    debug!(
+        "sys_pipe2 result: read_fd={}, write_fd={}",
+        read_fd, write_fd
+    );
 
     0
 }
@@ -237,6 +300,55 @@ pub(super) fn sys_fstatat(
     } else {
         -1
     }
+}
+
+/// fcntl - manipulate file descriptor
+pub(super) fn sys_fcntl(fd: usize, cmd: FcntlCmd, arg: FcntlArg) -> isize {
+    debug!("sys_fcntl(fd={:#x}, cmd={:?}, arg={:?});", fd, cmd, arg);
+
+    let mut process_inner = get_current_thread().process.inner.lock();
+    if let Some(oldfd) = process_inner.fd_table.get_mut(fd).unwrap() {
+        match cmd {
+            // Duplicate the file descriptor fd using the lowest-numbered available file descriptor
+            // greater than or equal to arg.
+            FcntlCmd::F_DUPFD => {
+                let newf = Some(oldfd.clone());
+                let newfd = process_inner.fd_alloc_from(arg.bits());
+                if newfd >= 0 {
+                    process_inner.fd_table[newfd as usize] = newf;
+                    return newfd;
+                }
+            }
+            // As for F_DUPFD, but additionally set the close-on-exec flag for the duplicate file
+            // descriptor.
+            FcntlCmd::F_DUPFD_CLOEXEC => {
+                let mut newf = oldfd.clone();
+                let newfd = process_inner.fd_alloc_from(arg.bits());
+                if newfd >= 0 {
+                    unsafe { Arc::get_mut_unchecked(&mut newf) }
+                        .flags
+                        .insert(OpenFlags::CLOEXEC);
+                    process_inner.fd_table[newfd as usize] = Some(newf);
+                    return newfd;
+                }
+            }
+            // Return (as the function result) the file descriptor flags; arg is ignored.
+            FcntlCmd::F_GETFD => return oldfd.flags.bits() as isize,
+            // Set the file descriptor flags to the value specified by arg.
+            FcntlCmd::F_SETFD => {
+                if arg.contains(FcntlArg::FD_CLOEXEC) {
+                    unsafe { Arc::get_mut_unchecked(oldfd) }
+                        .flags
+                        .insert(OpenFlags::CLOEXEC);
+                }
+            }
+            // unimplemented
+            _ => {
+                error!("fcntl cmd {:?} is not supported yet.", cmd);
+            }
+        }
+    }
+    -1
 }
 
 /// TODO 去掉中间重复的 `/` 和 `.`

@@ -13,4 +13,8 @@ impl TaskContext for TaskContextImpl {
         self.ra = value;
         self
     }
+
+    fn get_ra(&self) -> usize {
+        self.ra
+    }
 }

@@ -94,6 +94,9 @@ impl AddressSpace {
             }
         }
 
+        new_as.data_segment_end = self.data_segment_end;
+        new_as.data_segment_max = self.data_segment_max;
+
         new_as
     }
 
@@ -169,30 +172,31 @@ impl AddressSpace {
             map_type: MapType::Framed,
             map_perm,
         };
-        // debug!("insert_framed_area {} {:?}", VARangeOrd(va_range.clone()), map_perm);
+        debug!(
+            "insert_framed_area {} {:?}",
+            VARangeOrd(va_range.clone()),
+            map_perm
+        );
         self.page_table
             .map(VARangeOrd(va_range.clone()), &mut area, data);
         self.areas.insert(VARangeOrd(va_range), area);
     }
 
-    pub fn insert_kernel_stack_area(
-        &mut self,
-        va_range: VARange,
-        map_perm: PTEImpl,
-        data: Option<&[u8]>,
-    ) {
+    pub fn insert_kernel_stack_area(&mut self, va_range: VARange) {
         let mut area = MapArea {
             data_frames: BTreeMap::new(),
             map_type: MapType::KernelStack,
-            map_perm,
+            map_perm: PTEImpl::READABLE | PTEImpl::WRITABLE,
         };
-        // debug!("insert_kernel_stack_area {} {:?}", VARangeOrd(va_range.clone()), map_perm);
+        debug!("insert_kernel_stack_area {}", VARangeOrd(va_range.clone()));
         self.page_table
-            .map(VARangeOrd(va_range.clone()), &mut area, data);
+            .map(VARangeOrd(va_range.clone()), &mut area, None);
         self.areas.insert(VARangeOrd(va_range), area);
     }
 
     /// 通过 elf 文件创建内存映射（不包括栈）
+    /// TODO 只传 header，创建一个 4096 大小的 Vec，先映射页面，在直接读数据进去（零拷贝）
+    /// 或者换一个思路，不复制数据，而是直接映射数据所在的页面？
     pub fn from_elf(file: &ElfFile) -> Self {
         // 建立带有内核映射的 AddressSpace
         let mut address_space = Self::new_kernel();
@@ -261,6 +265,7 @@ impl AddressSpace {
             for vpn in VARangeOrd(cur_end..addr).vpn_range() {
                 let dst_frame = frame_alloc().unwrap();
                 self.page_table.map_one(vpn, dst_frame.ppn, area.map_perm);
+                unsafe { llvm_asm!("sfence.vma $0, x0" :: "r"(VA::from(vpn).0) :: "volatile") };
                 area.data_frames.insert(vpn, dst_frame);
             }
         }

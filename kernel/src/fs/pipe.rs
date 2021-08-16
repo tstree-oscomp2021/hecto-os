@@ -27,7 +27,7 @@ pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
             pos: 0,
             vnode: Arc::new(Vnode {
                 fs: &(None, None),
-                full_path: String::new(),
+                full_path: String::from("pipe read end"),
                 inode: Box::new(PipeRead {
                     data: data.clone(),
                     condvar: condvar.clone(),
@@ -39,7 +39,7 @@ pub fn create_pipe_pair() -> [Arc<FileDescriptor>; 2] {
             pos: 0,
             vnode: Arc::new(Vnode {
                 fs: &(None, None),
-                full_path: String::new(),
+                full_path: String::from("pipe write end"),
                 inode: Box::new(PipeWrite {
                     data: Arc::downgrade(&data),
                     condvar,

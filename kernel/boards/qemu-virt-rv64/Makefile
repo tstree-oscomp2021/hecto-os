@@ -5,8 +5,10 @@ SBI			:=	rustsbi-qemu
 
 include ../Makefile.common
 
+LOOP		?=	1
+
 run: $(KERNEL_BIN)
-	@$(QEMU) $(QEMU_OPTS)
+	@for ((i = 1; i <= $(LOOP); i++)); do $(QEMU) $(QEMU_OPTS); done
 
 debug: $(KERNEL_BIN)
 	@tmux new-session -d \

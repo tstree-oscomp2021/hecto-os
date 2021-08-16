@@ -1,13 +1,9 @@
-use alloc::{boxed::Box, vec::Vec};
-
 use algorithm::Scheduler;
-use core_io::Read;
-use xmas_elf::ElfFile;
+use riscv::register::sstatus::{self, SPP};
 
 use super::*;
 use crate::{
-    fs::FILE_SYSTEM_TABLE, process::*, schedule::SCHEDULE_THREAD, trap::interface::TrapFrame,
-    AddressSpace,
+    process::interface::TaskContext, schedule::SCHEDULE_THREAD, trap::interface::TrapFrame,
 };
 
 /// 线程退出
@@ -132,30 +128,42 @@ pub(super) fn sys_wait4(pid: isize, wstatus: *mut i32, _options: isize, _rusage:
     }
 }
 
+unsafe fn convert_cstr_array(mut cstr_p: *const *const u8) -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    while !(*cstr_p).is_null() {
+        let s =
+            { core::str::from_utf8_unchecked(CStr::from_ptr(*cstr_p as *const c_char).to_bytes()) };
+        result.push(s.to_owned());
+        cstr_p = cstr_p.add(1);
+    }
+
+    result
+}
+
 pub(super) fn sys_execve(
     pathname: *const u8,
-    _argv: *const *const u8,
-    _envp: *const *const u8,
+    argv: *const *const u8,
+    envp: *const *const u8,
 ) -> isize {
+    let pathname = super::fs::normalize_path(AT_FDCWD, pathname);
+    let argv = unsafe { convert_cstr_array(argv) };
+    let envp = unsafe { convert_cstr_array(envp) };
+
     let cur_thread = get_current_thread();
-    // 读取 elf 文件内容
-    let mut app = FILE_SYSTEM_TABLE[0]
-        .1
-        .as_ref()
-        .unwrap()
-        .open_file(super::fs::normalize_path(super::fs::AT_FDCWD, pathname).as_str())
-        .unwrap();
-    let mut data: Vec<u8> = Vec::new();
-    app.read_to_end(&mut data).unwrap();
-    let elf = ElfFile::new(data.as_slice()).unwrap();
-    cur_thread.process.inner.lock().address_space = AddressSpace::from_elf(&elf);
-    cur_thread.user_stack_top = cur_thread.process.alloc_user_stack();
-    // 设置 TrapFrame
-    let trap_frame = get_current_trapframe();
-    trap_frame.set_sp(cur_thread.user_stack_top.0 - 8);
-    trap_frame.set_entry_point(elf.header.pt2.entry_point() as usize);
-    // 激活新页表
-    cur_thread.activate();
+    cur_thread.execve(
+        &pathname,
+        &(argv.iter().map(|s| s.as_str()).collect::<Vec<&str>>()),
+        &(envp.iter().map(|s| s.as_str()).collect::<Vec<&str>>()),
+    );
+    // cur_thread.activate();
+
+    println!("cur_thread ra = {:#x}", cur_thread.task_cx.get_ra());
+
+    unsafe {
+        let mut tmp_task_cx: *const TaskContextImpl = core::mem::transmute(1usize);
+        debug_assert_eq!(sstatus::read().spp(), SPP::User);
+        __switch(&mut tmp_task_cx, cur_thread.task_cx);
+    }
 
     0
 }

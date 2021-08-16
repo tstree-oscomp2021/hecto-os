@@ -17,5 +17,7 @@ pub mod interface {
     /// 然后切换到另一个线程
     pub trait TaskContext {
         fn set_ra(&mut self, value: usize) -> &mut Self;
+
+        fn get_ra(&self) -> usize;
     }
 }
