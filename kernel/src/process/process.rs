@@ -10,7 +10,7 @@ use core::{mem::size_of, sync::atomic::AtomicU64};
 
 use interface::PageTable;
 use lazy_static::lazy_static;
-use xmas_elf::ElfFile;
+use xmas_elf::{program::Type, ElfFile};
 
 use super::interface::TaskContext;
 use crate::{
@@ -21,6 +21,7 @@ use crate::{
     mm::*,
     sync::SpinLock,
     thread::TRAP_FRAME_OFFSET,
+    ElfFileExt,
 };
 
 lazy_static! {
@@ -142,7 +143,7 @@ enum AUXV {
 
 impl Process {
     /// 通过 ELF 文件创建用户进程
-    pub fn from_elf(file: &ElfFile, pid: usize) -> Arc<Self> {
+    pub fn from_elf(file: &mut ElfFileExt, pid: usize) -> Arc<Self> {
         Arc::new(Self {
             pid,
             times: Default::default(),
@@ -164,7 +165,7 @@ impl Process {
 
     /// - 地址空间替换（程序、用户栈、mmap）
     /// - 将带 close-on-exec 的 fd 关闭
-    pub fn execve(&self, file: &ElfFile) {
+    pub fn execve(&self, file: &mut ElfFileExt) {
         // 1. 新的地址空间
         let mut inner = self.inner.lock();
         inner.address_space = AddressSpace::from_elf(file);
@@ -257,10 +258,15 @@ impl Process {
         // https://lwn.net/Articles/631631/
         // http://articles.manugarg.com/aboutelfauxiliaryvectors.html
         // https://www.cnblogs.com/likaiming/p/11193697.html
-        let ph_head_addr = elf.find_section_by_name(".text").unwrap().address() as usize
-            - elf.header.pt2.ph_entry_size() as usize * elf.header.pt2.ph_count() as usize;
+        let mut ph_head_addr = elf.header.pt2.ph_offset(); // program headers 在文件中的偏移
+        for ph in elf.program_iter() {
+            if ph.get_type() == Ok(Type::Load) && ph.offset() <= ph_head_addr {
+                ph_head_addr += ph.virtual_addr() - ph.offset(); // 得到 program headers 的虚拟地址
+                break;
+            }
+        }
         let auvx = [
-            (AUXV::AT_PHDR, ph_head_addr),
+            (AUXV::AT_PHDR, ph_head_addr as usize),
             (AUXV::AT_PHENT, elf.header.pt2.ph_entry_size() as usize),
             (AUXV::AT_PHNUM, elf.header.pt2.ph_count() as usize),
             (AUXV::AT_PAGESZ, 4096),

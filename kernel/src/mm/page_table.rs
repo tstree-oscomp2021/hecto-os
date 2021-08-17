@@ -72,7 +72,6 @@ pub trait PageTable {
     }
 
     /// TODO 考虑页面不够的情况
-    /// XXX 假设 off 和 vaddr 的第12位是相等的
     fn map(&mut self, va_range: VARangeOrd, area: &mut MapArea, data: Option<&[u8]>) {
         match area.map_type {
             MapType::Linear => {
@@ -87,54 +86,13 @@ pub trait PageTable {
                     }
                 }
             }
+            // XXX 现在只能用来映射用户栈了
             MapType::Framed => {
                 match data {
                     // 有数据，且数据长度不为 0
                     // 注意！data 段的长度可能会小于 va_range，这是因为少的那段是 bss 段！需要清零！
                     Some(data) if data.len() != 0 => {
-                        debug_assert_eq!(
-                            va_range.0.start.page_offset(),
-                            VA::from(data.as_ptr() as usize).page_offset()
-                        );
-
-                        let src_vpn_range = VA::from(data.as_ptr()).floor()
-                            ..VA::from(data.as_ptr() as usize + data.len()).floor();
-                        // println!("src_vpn_range {:x?}", src_vpn_range);
-                        // println!("vpn {:x?}", va_range.vpn_range());
-                        // XXX va_range.start 和 end 可能并非 4k 对齐的，导致多复制了一些数据
-                        for (vpn, src_vpn) in va_range.vpn_range().zip(src_vpn_range.clone()) {
-                            let dst_frame = frame_alloc().unwrap();
-                            self.map_one(vpn, dst_frame.ppn, area.map_perm);
-                            VPN::from(dst_frame.ppn)
-                                .get_array()
-                                .copy_from_slice(src_vpn.get_array::<usize>());
-                            // println!("{:?}", src_vpn.get_array::<usize>());
-                            area.data_frames.insert(vpn, dst_frame);
-                        }
-
-                        let mut vpn: VPN = VA::from(va_range.0.start.0 + data.len()).floor();
-                        let end_data_page =
-                            VA::from(data.as_ptr() as usize + data.len()).page_offset();
-                        if end_data_page != 0 {
-                            let src_vpn: VPN = src_vpn_range.end;
-                            let dst_frame = frame_alloc().unwrap();
-                            self.map_one(vpn, dst_frame.ppn, area.map_perm);
-                            VPN::from(dst_frame.ppn).get_array()[..end_data_page / 8]
-                                .copy_from_slice(
-                                    &src_vpn.get_array::<usize>()[..end_data_page / 8],
-                                );
-                            VPN::from(dst_frame.ppn).get_array()[end_data_page / 8..].fill(0usize);
-                            area.data_frames.insert(vpn, dst_frame);
-
-                            vpn += 1;
-                        }
-
-                        for v in vpn..va_range.vpn_range().end {
-                            let dst_frame = frame_alloc().unwrap();
-                            self.map_one(v, dst_frame.ppn, area.map_perm);
-                            VPN::from(dst_frame.ppn).get_array().fill(0usize);
-                            area.data_frames.insert(v, dst_frame);
-                        }
+                        todo!()
                     }
                     // 数据长度为 0，说明是 bss 段
                     Some(_) => {

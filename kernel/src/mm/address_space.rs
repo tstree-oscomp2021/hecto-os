@@ -1,7 +1,8 @@
 use alloc::collections::BTreeMap;
 use core::cmp::max;
 
-use xmas_elf::{program::Type, ElfFile};
+use core_io::SeekFrom;
+use xmas_elf::program::Type;
 
 use super::{FrameTracker, VARange, VARangeOrd, VA, VPN};
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
         PTEImpl, PageTableImpl,
     },
     board::{interface::Config, ConfigImpl},
-    frame_alloc,
+    frame_alloc, ElfFileExt,
 };
 
 #[derive(Clone, Copy)]
@@ -194,31 +195,71 @@ impl AddressSpace {
         self.areas.insert(VARangeOrd(va_range), area);
     }
 
-    /// 通过 elf 文件创建内存映射（不包括栈）
-    /// TODO 只传 header，创建一个 4096 大小的 Vec，先映射页面，在直接读数据进去（零拷贝）
-    /// 或者换一个思路，不复制数据，而是直接映射数据所在的页面？
-    pub fn from_elf(file: &ElfFile) -> Self {
-        // 建立带有内核映射的 AddressSpace
+    /// 通过 elf 文件创建地址空间（不包括栈）
+    pub fn from_elf(elf_file: &mut ElfFileExt) -> Self {
         let mut address_space = Self::new_kernel();
+
         // 映射所有 Segment
-        for ph in file.program_iter() {
+        for ph in elf_file.elf.program_iter() {
             if ph.get_type() != Ok(Type::Load) {
                 continue;
             }
             // println!("{:?}", ph);
-            let start_addr = ph.virtual_addr() as usize; // segment 在内存中的虚拟起始地址
-            let offset = ph.offset() as usize; // segment 相对于 ELF 文件开头的偏移
-            let flags = ph.flags(); // RWX 权限
+            let start_addr = ph.virtual_addr() as usize; // segment 在内存中加载到的虚拟地址
+            let mem_size = ph.mem_size() as usize; // 所占虚拟地址大小
+            let offset = ph.offset(); // segment 相对于 ELF 文件起始处的偏移
+            let file_size = ph.file_size() as usize; // segment 数据在文件中所占大小
+
+            let va_range = VARangeOrd(VA(start_addr)..VA(start_addr + mem_size));
+            let bss_start = VA(start_addr + file_size); // bss section 起始处
+
             let mut map_perm = PTEImpl::USER;
+            let flags = ph.flags(); // RWX 权限
             map_perm.set(PTEImpl::READABLE, flags.is_read());
             map_perm.set(PTEImpl::WRITABLE, flags.is_write());
             map_perm.set(PTEImpl::EXECUTABLE, flags.is_execute());
-            address_space.insert_framed_area(
-                start_addr.into()..(start_addr + ph.mem_size() as usize).into(),
+
+            let mut area = MapArea {
+                data_frames: BTreeMap::new(),
+                map_type: MapType::Framed,
                 map_perm,
-                Some(&file.input[offset..offset + ph.file_size() as usize]),
-            );
-            address_space.data_segment_end = VA(start_addr + ph.mem_size() as usize);
+            };
+
+            elf_file.file.seek(SeekFrom::Start(offset)).unwrap();
+            let mut start = VA(start_addr).page_offset();
+            let mut end;
+            for vpn in va_range.vpn_range() {
+                let dst_frame = frame_alloc().unwrap();
+                let data = VPN::from(dst_frame.ppn).get_array::<u8>();
+                end = if VA::from(vpn + 1) <= bss_start {
+                    4096
+                } else if VA::from(vpn) >= bss_start {
+                    0
+                } else {
+                    bss_start.page_offset()
+                };
+                let end2 = if VA::from(vpn + 1) <= va_range.0.end {
+                    4096
+                } else {
+                    va_range.0.end.page_offset()
+                };
+
+                // data section
+                elf_file.file.read_exact(&mut data[start..end]).unwrap();
+                // bss section
+                data[end..end2].fill(0);
+                start = 0;
+
+                address_space
+                    .page_table
+                    .map_one(vpn, dst_frame.ppn, map_perm);
+                area.data_frames.insert(vpn, dst_frame);
+            }
+
+            address_space.data_segment_end = va_range.0.end;
+            address_space.areas.insert(va_range.clone(), area);
+
+            debug!("insert segment {} {:?}", VARangeOrd(va_range.0), map_perm);
         }
 
         address_space.data_segment_max = VA(round_up!(

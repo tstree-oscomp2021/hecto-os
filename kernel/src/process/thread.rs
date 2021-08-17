@@ -1,7 +1,8 @@
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{mem::size_of, sync::atomic::Ordering};
 
 use core_io::Read;
+use fatfs::Inode;
 use riscv::register::{sstatus, sstatus::SPP};
 use xmas_elf::ElfFile;
 
@@ -157,6 +158,44 @@ pub fn get_current_trapframe() -> &'static mut TrapFrameImpl {
     (get_cur_kernel_stack_top() - TRAP_FRAME_OFFSET).get_mut()
 }
 
+/// 对 [`xmas_elf::ElfFile`] 的扩展。
+/// 创建时会读取 header 和 program headers 数据，不包含 section headers。
+pub struct ElfFileExt<'a> {
+    pub elf: ElfFile<'a>,
+    pub file: Box<dyn Inode + Send + Sync>,
+    pub frame: FrameTracker,
+}
+
+impl<'a> ElfFileExt<'a> {
+    const BLK_SIZE: usize = 512;
+
+    pub fn new(file_name: &str) -> Self {
+        let frame = frame_alloc().unwrap();
+        let data = VPN::from(frame.ppn).get_array::<u8>();
+        let mut file = Box::new(
+            FILE_SYSTEM_TABLE[0]
+                .1
+                .as_ref()
+                .unwrap()
+                .open_file(file_name)
+                .unwrap(),
+        );
+        file.read_exact(&mut data[..Self::BLK_SIZE]).unwrap();
+        let elf = ElfFile::new(data).unwrap();
+        let pt2 = elf.header.pt2;
+        let ph_entry_end =
+            pt2.ph_offset() as usize + (pt2.ph_count() * pt2.ph_entry_size()) as usize;
+        if ph_entry_end > Self::BLK_SIZE {
+            file.read_exact(
+                &mut VPN::from(frame.ppn).get_array::<u8>()[Self::BLK_SIZE..ph_entry_end],
+            )
+            .unwrap();
+        }
+
+        Self { elf, file, frame }
+    }
+}
+
 impl Thread {
     #[cfg(debug_assertions)]
     pub const MAGIC: usize = 0x5834_3845_2383_3485;
@@ -207,18 +246,9 @@ impl Thread {
         let tid = TID_ALLOCATOR.lock().alloc();
 
         // 读取 elf 文件内容
-        let mut app = FILE_SYSTEM_TABLE[0]
-            .1
-            .as_ref()
-            .unwrap()
-            .open_file(file_name)
-            .unwrap();
-        trace!("文件 {} 大小为 {}", file_name, app.size().unwrap());
-        let mut data: Vec<u8> = Vec::with_capacity(app.size().unwrap() as usize + 1);
-        app.read_to_end(&mut data).unwrap();
-        let elf = ElfFile::new(data.as_slice()).unwrap();
+        let mut elf_file = ElfFileExt::new(file_name);
         // 创建进程
-        let process = Process::from_elf(&elf, tid.0);
+        let process = Process::from_elf(&mut elf_file, tid.0);
         // 分配内核栈
         let kernel_stack_range = get_kernel_stack_range(tid.0);
         // println!("kernel_stack_range {}", VARangeOrd(kernel_stack_range.clone()));
@@ -239,7 +269,7 @@ impl Thread {
                 "PATH=/",
                 "OLDPWD=/root",
             ],
-            &elf,
+            &elf_file.elf,
             kernel_stack_range.end,
         );
 
@@ -272,22 +302,15 @@ impl Thread {
         }
         println!();
 
-        let mut app = FILE_SYSTEM_TABLE[0]
-            .1
-            .as_ref()
-            .unwrap()
-            .open_file(pathname)
-            .unwrap();
-        trace!("文件 {} 大小为 {}", pathname, app.size().unwrap());
-        let mut data: Vec<u8> = Vec::with_capacity(app.size().unwrap() as usize + 1);
-        app.read_to_end(&mut data).unwrap();
-        let elf = ElfFile::new(data.as_slice()).unwrap();
-
-        self.process.execve(&elf);
+        let mut elf_file = ElfFileExt::new(pathname);
+        self.process.execve(&mut elf_file);
         // 1. 新的用户栈
-        let (user_stack_top, task_cx) =
-            self.process
-                .alloc_user_stack(argv, envp, &elf, get_kernel_stack_range(self.tid.0).end);
+        let (user_stack_top, task_cx) = self.process.alloc_user_stack(
+            argv,
+            envp,
+            &elf_file.elf,
+            get_kernel_stack_range(self.tid.0).end,
+        );
         self.user_stack_top = user_stack_top;
         self.task_cx = task_cx;
     }

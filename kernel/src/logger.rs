@@ -88,8 +88,8 @@ macro_rules! error {
         #[cfg(any(feature = "trace", feature = "debug", feature = "info", feature = "warn", feature = "error"))]
         println!(
             "[\x1b[{}mERROR\x1b[0m {}] {}",
-            crate::logger::level2color(crate::logger::Level::Error),
-            crate::arch::cpu::get_cpu_id(),
+            $crate::logger::level2color($crate::logger::Level::Error),
+            $crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -100,8 +100,8 @@ macro_rules! warn {
         #[cfg(any(feature = "trace", feature = "debug", feature = "info", feature = "warn"))]
         println!(
             "[\x1b[{}mWARN \x1b[0m {}] {}",
-            crate::logger::level2color(crate::logger::Level::Warn),
-            crate::arch::cpu::get_cpu_id(),
+            $crate::logger::level2color($crate::logger::Level::Warn),
+            $crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -112,8 +112,8 @@ macro_rules! info {
         #[cfg(any(feature = "trace", feature = "debug", feature = "info"))]
         println!(
             "[\x1b[{}mINFO \x1b[0m {}] {}",
-            crate::logger::level2color(crate::logger::Level::Info),
-            crate::arch::cpu::get_cpu_id(),
+            $crate::logger::level2color($crate::logger::Level::Info),
+            $crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -124,8 +124,8 @@ macro_rules! debug {
         #[cfg(any(feature = "trace", feature = "debug"))]
         println!(
             "[\x1b[{}mDEBUG\x1b[0m {}] {}",
-            crate::logger::level2color(crate::logger::Level::Debug),
-            crate::arch::cpu::get_cpu_id(),
+            $crate::logger::level2color($crate::logger::Level::Debug),
+            $crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
@@ -137,8 +137,8 @@ macro_rules! trace {
         #[cfg(any(feature = "trace"))]
         println!(
             "[\x1b[{}mTRACE\x1b[0m {}] {}",
-            crate::logger::level2color(crate::logger::Level::Trace),
-            crate::arch::cpu::get_cpu_id(),
+            $crate::logger::level2color($crate::logger::Level::Trace),
+            $crate::arch::cpu::get_cpu_id(),
             format_args!($($arg)*)
         );
     })
